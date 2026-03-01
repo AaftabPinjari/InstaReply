@@ -145,7 +145,13 @@ async function handleComment(
     // Build the message from template
     let message = automation.template.message_text;
     message = message.replace(/\{\{commenter_name\}\}/g, from.username);
-    message = message.replace(/\{\{your_username\}\}/g, "");
+    message = message.replace(/\{\{your_username\}\}/g, account.ig_username);
+
+    const hasFollowButton = message.includes("{{follow_button}}");
+    if (hasFollowButton) {
+        // Remove the template tag from the string before sending
+        message = message.replace(/\{\{follow_button\}\}/g, "").trim();
+    }
 
     console.log(`[Webhook] Preparing to send DM using ${automation.template.name}. Text: "${message}"`);
 
@@ -153,6 +159,30 @@ async function handleComment(
     const tokenToUse = account.page_access_token || account.access_token;
     // We can use PAGE_ID/messages or IG_USER_ID/messages endpoint
     const endpointId = account.page_id || igUserId;
+
+    // Build the Instagram specific message payload
+    let messagePayload: any = {
+        text: message
+    };
+
+    if (hasFollowButton) {
+        messagePayload = {
+            attachment: {
+                type: "template",
+                payload: {
+                    template_type: "button",
+                    text: message,
+                    buttons: [
+                        {
+                            type: "web_url",
+                            url: `https://instagram.com/${account.ig_username}`,
+                            title: "Follow Me"
+                        }
+                    ]
+                }
+            }
+        };
+    }
 
     // Send the private reply DM
     try {
@@ -166,22 +196,7 @@ async function handleComment(
                 },
                 body: JSON.stringify({
                     recipient: { comment_id: commentId },
-                    message: {
-                        attachment: {
-                            type: "template",
-                            payload: {
-                                template_type: "button",
-                                text: message,
-                                buttons: [
-                                    {
-                                        type: "web_url",
-                                        url: `https://instagram.com/${account.ig_username}`,
-                                        title: "Follow Me"
-                                    }
-                                ]
-                            }
-                        }
-                    },
+                    message: messagePayload,
                 }),
             }
         );

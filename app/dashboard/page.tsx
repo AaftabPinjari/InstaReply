@@ -6,7 +6,6 @@ import {
     Send,
     MessageCircle,
     Zap,
-    TrendingUp,
     ArrowUpRight,
     Instagram,
     AlertCircle,
@@ -209,12 +208,6 @@ export default function DashboardPage() {
                                 label: "Set Up Automation",
                                 desc: "Assign templates to your posts",
                                 icon: Zap,
-                            },
-                            {
-                                href: "/dashboard/setup-guide",
-                                label: "View Setup Guide",
-                                desc: "Step-by-step Meta API instructions",
-                                icon: TrendingUp,
                             },
                         ].map((action) => (
                             <Link

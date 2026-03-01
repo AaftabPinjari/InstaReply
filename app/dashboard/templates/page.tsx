@@ -18,6 +18,7 @@ const VARIABLES = [
     { label: "Commenter Name", value: "{{commenter_name}}" },
     { label: "Post Caption", value: "{{post_caption}}" },
     { label: "Your Username", value: "{{your_username}}" },
+    { label: "Follow Button", value: "{{follow_button}}" },
 ];
 
 export default function TemplatesPage() {
@@ -87,7 +88,7 @@ export default function TemplatesPage() {
         setEditing(t || null); setName(t?.name || ""); setMsg(t?.message_text || ""); setShowEditor(true); setPreview(false);
     };
 
-    const renderPreview = (t: string) => t.replace(/\{\{commenter_name\}\}/g, "Alex").replace(/\{\{post_caption\}\}/g, "Check out our new product! 🚀").replace(/\{\{your_username\}\}/g, "yourbrand");
+    const renderPreview = (t: string) => t.replace(/\{\{commenter_name\}\}/g, "Alex").replace(/\{\{post_caption\}\}/g, "Check out our new product! 🚀").replace(/\{\{your_username\}\}/g, "yourbrand").replace(/\{\{follow_button\}\}/g, "\n\n[ Button: Follow @yourbrand ]");
 
     return (
         <div>

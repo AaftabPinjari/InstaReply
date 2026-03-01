@@ -15,7 +15,6 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    BookOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -25,7 +24,6 @@ const navItems = [
     { href: "/dashboard/templates", label: "Templates", icon: FileText },
     { href: "/dashboard/automations", label: "Automations", icon: Zap },
     { href: "/dashboard/logs", label: "DM Logs", icon: ScrollText },
-    { href: "/dashboard/setup-guide", label: "Setup Guide", icon: BookOpen },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -97,8 +95,8 @@ export default function DashboardLayout({
                                 key={item.href}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative ${isActive
-                                        ? "bg-brand-500/15 text-brand-400"
-                                        : "text-surface-400 hover:text-white hover:bg-white/[0.04]"
+                                    ? "bg-brand-500/15 text-brand-400"
+                                    : "text-surface-400 hover:text-white hover:bg-white/[0.04]"
                                     }`}
                             >
                                 <item.icon
