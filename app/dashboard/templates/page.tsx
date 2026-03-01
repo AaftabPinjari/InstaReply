@@ -91,50 +91,72 @@ export default function TemplatesPage() {
     const renderPreview = (t: string) => t.replace(/\{\{commenter_name\}\}/g, "Alex").replace(/\{\{post_caption\}\}/g, "Check out our new product! 🚀").replace(/\{\{your_username\}\}/g, "yourbrand").replace(/\{\{follow_button\}\}/g, "\n\n[ Button: Follow @yourbrand ]");
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-8">
+        <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">DM Templates</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">DM Templates</h1>
                     <p className="text-sm text-surface-400">Create message templates with dynamic variables</p>
                 </div>
-                <button onClick={() => open()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25">
+                <button onClick={() => open()} className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 sm:w-auto">
                     <Plus className="w-4 h-4" /> New Template
                 </button>
             </div>
 
             <AnimatePresence>
                 {showEditor && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowEditor(false)}>
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg glass rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-bold text-white">{editing ? "Edit Template" : "New Template"}</h2>
-                                <button onClick={() => setShowEditor(false)} className="text-surface-500 hover:text-surface-300"><X className="w-5 h-5" /></button>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4" onClick={() => setShowEditor(false)}>
+                        <motion.div
+                            initial={{ opacity: 0, y: "100%" }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-lg glass rounded-t-3xl sm:rounded-2xl p-6 sm:p-8 max-h-[92vh] overflow-y-auto"
+                        >
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-xl font-bold text-white">{editing ? "Edit Template" : "New Template"}</h2>
+                                <button onClick={() => setShowEditor(false)} className="p-2 -mr-2 text-surface-500 hover:text-surface-300 transition-colors"><X className="w-5 h-5" /></button>
                             </div>
-                            <div className="space-y-5">
+                            <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-surface-300 mb-2">Template Name</label>
-                                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome Message" className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm" />
+                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">Template Name</label>
+                                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome Message" className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center justify-between mb-2.5">
                                         <label className="text-sm font-medium text-surface-300">Message</label>
-                                        <button onClick={() => setPreview(!preview)} className="flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300"><Eye className="w-3 h-3" />{preview ? "Edit" : "Preview"}</button>
+                                        <button onClick={() => setPreview(!preview)} className="flex items-center gap-2 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors">
+                                            {preview ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            {preview ? "Edit" : "Preview"}
+                                        </button>
                                     </div>
                                     {preview ? (
-                                        <div className="w-full min-h-[120px] px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-surface-200 leading-relaxed">{renderPreview(msg) || <span className="text-surface-500">Nothing to preview</span>}</div>
+                                        <div className="w-full min-h-[160px] px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-surface-200 leading-relaxed whitespace-pre-wrap">{renderPreview(msg) || <span className="text-surface-500 italic">Nothing to preview yet...</span>}</div>
                                     ) : (
-                                        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Hey {{commenter_name}}! Thanks for your comment 🙌..." rows={5} className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm resize-none" />
+                                        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Hey {{commenter_name}}! Thanks for your comment 🙌..." rows={6} className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm resize-none" />
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-surface-500 mb-2">Insert Variable</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {VARIABLES.map((v) => (<button key={v.value} onClick={() => setMsg((p) => p + v.value)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-400 text-xs font-medium hover:bg-brand-500/20 transition-colors"><Sparkles className="w-3 h-3" />{v.label}</button>))}
+                                    <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Dynamic Variables</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {VARIABLES.map((v) => (
+                                            <button
+                                                key={v.value}
+                                                onClick={() => setMsg((p) => p + v.value)}
+                                                className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-surface-300 text-xs font-medium hover:bg-brand-500/10 hover:border-brand-500/20 hover:text-brand-400 transition-all text-left"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                                                <span className="truncate">{v.label}</span>
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 pt-2">
-                                    <button onClick={() => setShowEditor(false)} className="flex-1 py-3 rounded-xl border border-white/[0.08] text-sm font-medium text-surface-300 hover:bg-white/[0.04] transition-all">Cancel</button>
-                                    <button onClick={save} disabled={!name.trim() || !msg.trim() || saveMutation.isPending} className="flex-1 py-3 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2"><Save className="w-4 h-4" />{saveMutation.isPending ? "Saving..." : "Save Template"}</button>
+                                <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
+                                    <button onClick={() => setShowEditor(false)} className="w-full sm:flex-1 py-3.5 rounded-xl border border-white/[0.08] text-sm font-semibold text-surface-300 hover:bg-white/[0.04] transition-all">Cancel</button>
+                                    <button onClick={save} disabled={!name.trim() || !msg.trim() || saveMutation.isPending} className="w-full sm:flex-1 py-3.5 rounded-xl gradient-brand text-sm font-bold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
+                                        <Save className="w-4 h-4" />
+                                        {saveMutation.isPending ? "Saving..." : "Save Template"}
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

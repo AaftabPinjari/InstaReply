@@ -35,6 +35,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
     const [user, setUser] = useState<{ email?: string; full_name?: string } | null>(null);
 
     useEffect(() => {
@@ -55,13 +56,63 @@ export default function DashboardLayout({
         router.push("/login");
     };
 
+    // Close mobile sidebars on route change
+    useEffect(() => {
+        setMobileOpen(false);
+    }, [pathname]);
+
     return (
-        <div className="min-h-screen bg-surface-950 flex">
+        <div className="min-h-screen bg-surface-950 flex flex-col md:flex-row">
+            {/* Mobile Header */}
+            <header className="md:hidden flex items-center justify-between px-5 h-16 border-b border-white/[0.06] bg-surface-950/80 backdrop-blur-xl sticky top-0 z-50">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-md shadow-brand-500/20">
+                        <Send className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-lg font-bold tracking-tight text-white">InstaReply</span>
+                </div>
+                <button
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                    className="p-2 rounded-xl text-surface-400 hover:text-white hover:bg-white/[0.04] transition-all"
+                >
+                    <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        {mobileOpen ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        )}
+                    </svg>
+                </button>
+            </header>
+
+            {/* Sidebar Overlay (Mobile) */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setMobileOpen(false)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
             <motion.aside
-                animate={{ width: collapsed ? 72 : 260 }}
+                initial={false}
+                animate={{
+                    width: collapsed ? 72 : 260,
+                    x: mobileOpen ? 0 : (typeof window !== 'undefined' && window.innerWidth < 768 ? -260 : 0)
+                }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed left-0 top-0 h-screen border-r border-white/[0.06] bg-surface-950 z-40 flex flex-col"
+                className={`fixed left-0 top-0 h-screen border-r border-white/[0.06] bg-surface-950 z-[45] flex flex-col md:relative ${mobileOpen ? 'shadow-2xl' : ''
+                    }`}
             >
                 {/* Logo */}
                 <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/[0.06] shrink-0">
@@ -69,7 +120,7 @@ export default function DashboardLayout({
                         <Send className="w-4 h-4 text-white" />
                     </div>
                     <AnimatePresence>
-                        {!collapsed && (
+                        {(!collapsed || mobileOpen) && (
                             <motion.span
                                 initial={{ opacity: 0, width: 0 }}
                                 animate={{ opacity: 1, width: "auto" }}
@@ -104,7 +155,7 @@ export default function DashboardLayout({
                                         }`}
                                 />
                                 <AnimatePresence>
-                                    {!collapsed && (
+                                    {(!collapsed || mobileOpen) && (
                                         <motion.span
                                             initial={{ opacity: 0, width: 0 }}
                                             animate={{ opacity: 1, width: "auto" }}
@@ -131,7 +182,7 @@ export default function DashboardLayout({
                 <div className="border-t border-white/[0.06] p-3 space-y-2 shrink-0">
                     {/* User info */}
                     <AnimatePresence>
-                        {!collapsed && user && (
+                        {(!collapsed || mobileOpen) && user && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -152,7 +203,7 @@ export default function DashboardLayout({
                     >
                         <LogOut className="w-[18px] h-[18px] shrink-0" />
                         <AnimatePresence>
-                            {!collapsed && (
+                            {(!collapsed || mobileOpen) && (
                                 <motion.span
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -165,10 +216,10 @@ export default function DashboardLayout({
                         </AnimatePresence>
                     </button>
 
-                    {/* Collapse toggle */}
+                    {/* Collapse toggle (Desktop only) */}
                     <button
                         onClick={() => setCollapsed(!collapsed)}
-                        className="flex items-center justify-center w-full py-2 rounded-xl text-surface-500 hover:text-surface-300 hover:bg-white/[0.04] transition-all"
+                        className="hidden md:flex items-center justify-center w-full py-2 rounded-xl text-surface-500 hover:text-surface-300 hover:bg-white/[0.04] transition-all"
                     >
                         {collapsed ? (
                             <ChevronRight className="w-4 h-4" />
@@ -180,15 +231,11 @@ export default function DashboardLayout({
             </motion.aside>
 
             {/* Main Content */}
-            <motion.main
-                animate={{ marginLeft: collapsed ? 72 : 260 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="flex-1 min-h-screen"
-            >
-                <div className="max-w-6xl mx-auto px-6 md:px-10 py-8">
+            <main className="flex-1 min-h-screen overflow-x-hidden">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
                     {children}
                 </div>
-            </motion.main>
+            </main>
         </div>
     );
 }

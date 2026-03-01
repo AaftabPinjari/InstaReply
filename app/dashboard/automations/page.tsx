@@ -94,47 +94,72 @@ export default function AutomationsPage() {
     const del = (id: string) => deleteMutation.mutate(id);
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-8">
+        <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">Automations</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Automations</h1>
                     <p className="text-sm text-surface-400">Set up comment-to-DM rules for your posts</p>
                 </div>
-                <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25">
-                    <Plus className="w-4 h-4" />New Automation
+                <button onClick={() => setShowModal(true)} className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 sm:w-auto">
+                    <Plus className="w-4 h-4" />New <span className="sm:hidden lg:inline">Automation</span>
                 </button>
             </div>
 
             <AnimatePresence>
                 {showModal && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowModal(false)}>
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md glass rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-bold text-white">New Automation</h2>
-                                <button onClick={() => setShowModal(false)} className="text-surface-500 hover:text-surface-300"><X className="w-5 h-5" /></button>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4" onClick={() => setShowModal(false)}>
+                        <motion.div
+                            initial={{ opacity: 0, y: "100%" }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-md glass rounded-t-3xl sm:rounded-2xl p-6 sm:p-8 max-h-[92vh] overflow-y-auto"
+                        >
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-xl font-bold text-white">New Automation</h2>
+                                <button onClick={() => setShowModal(false)} className="p-2 -mr-2 text-surface-500 hover:text-surface-300 transition-colors"><X className="w-5 h-5" /></button>
                             </div>
-                            <div className="space-y-5">
+                            <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-surface-300 mb-2">DM Template</label>
-                                    <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white outline-none focus:border-brand-500/50 text-sm appearance-none">
-                                        <option value="" className="bg-surface-900">Select a template...</option>
-                                        {templates.map(t => <option key={t.id} value={t.id} className="bg-surface-900">{t.name}</option>)}
-                                    </select>
-                                    {templates.length === 0 && <p className="text-xs text-warning-400 mt-1.5">Create a template first!</p>}
+                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">DM Template</label>
+                                    <div className="relative">
+                                        <select
+                                            value={templateId}
+                                            onChange={(e) => setTemplateId(e.target.value)}
+                                            className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white outline-none focus:border-brand-500/50 text-sm appearance-none transition-all"
+                                        >
+                                            <option value="" className="bg-surface-900">Select a template...</option>
+                                            {templates.map(t => <option key={t.id} value={t.id} className="bg-surface-900">{t.name}</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500 text-xs">▼</div>
+                                    </div>
+                                    {templates.length === 0 && (
+                                        <p className="text-xs text-warning-400 mt-2 flex items-center gap-1">
+                                            <span>⚠️</span> Create a template first!
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-surface-300 mb-2">Media ID <span className="text-surface-500">(optional)</span></label>
-                                    <input type="text" value={mediaId} onChange={(e) => setMediaId(e.target.value)} placeholder="Leave blank for all posts" className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 text-sm" />
-                                    <p className="text-xs text-surface-600 mt-1.5">Target a specific post. Blank = applies to all posts.</p>
+                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">
+                                        Media ID <span className="text-surface-500 font-normal">(optional)</span>
+                                    </label>
+                                    <input type="text" value={mediaId} onChange={(e) => setMediaId(e.target.value)} placeholder="Leave blank for all posts" className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 text-sm transition-all" />
+                                    <p className="text-xs text-surface-600 mt-2">Target a specific post. Blank = applies to all posts.</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-surface-300 mb-2">Keyword Triggers <span className="text-surface-500">(optional)</span></label>
-                                    <input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g. price, info, link" className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 text-sm" />
-                                    <p className="text-xs text-surface-600 mt-1.5">Comma-separated. Only reply when comment contains these words.</p>
+                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">
+                                        Keyword Triggers <span className="text-surface-500 font-normal">(optional)</span>
+                                    </label>
+                                    <input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g. price, info, link" className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 text-sm transition-all" />
+                                    <p className="text-xs text-surface-600 mt-2">Comma-separated. Only reply when comment contains these words.</p>
                                 </div>
-                                <div className="flex items-center gap-3 pt-2">
-                                    <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-white/[0.08] text-sm font-medium text-surface-300 hover:bg-white/[0.04]">Cancel</button>
-                                    <button onClick={save} disabled={!templateId || saveMutation.isPending} className="flex-1 py-3 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2">{saveMutation.isPending ? "Creating..." : "Create Automation"}</button>
+                                <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
+                                    <button onClick={() => setShowModal(false)} className="w-full sm:flex-1 py-3.5 rounded-xl border border-white/[0.08] text-sm font-semibold text-surface-300 hover:bg-white/[0.04] transition-all">Cancel</button>
+                                    <button onClick={save} disabled={!templateId || saveMutation.isPending} className="w-full sm:flex-1 py-3.5 rounded-xl gradient-brand text-sm font-bold text-white hover:opacity-90 shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2 transition-all">
+                                        <Plus className="w-4 h-4" />
+                                        {saveMutation.isPending ? "Creating..." : "Create Automation"}
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

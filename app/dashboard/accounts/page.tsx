@@ -44,22 +44,22 @@ export default function AccountsPage() {
     };
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-8">
+        <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
                         Instagram Accounts
                     </h1>
                     <p className="text-sm text-surface-400">
-                        Connect your Instagram Business / Creator account
+                        Connect your Instagram account via Meta
                     </p>
                 </div>
                 <a
                     href="/api/auth/instagram"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 sm:w-auto"
                 >
-                    <Plus className="w-4 h-4" />
-                    Connect Account
+                    <Instagram className="w-4 h-4" />
+                    <span>Connect <span className="hidden sm:inline">Account</span></span>
                 </a>
             </div>
 

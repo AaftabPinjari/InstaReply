@@ -115,12 +115,14 @@ export default function DashboardPage() {
     ];
 
     return (
-        <div>
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1>
-                <p className="text-sm text-surface-400">
-                    Overview of your Instagram DM automations
-                </p>
+        <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Dashboard</h1>
+                    <p className="text-sm text-surface-400">
+                        Overview of your Instagram DM automations
+                    </p>
+                </div>
             </div>
 
             {/* Connect Account Banner */}
@@ -128,25 +130,25 @@ export default function DashboardPage() {
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-5 rounded-2xl gradient-card border border-brand-500/20 flex items-start gap-4"
+                    className="p-5 sm:p-6 rounded-2xl gradient-card border border-brand-500/20 flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-6"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                        <AlertCircle className="w-5 h-5 text-brand-400" />
+                    <div className="w-12 h-12 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/10">
+                        <Instagram className="w-6 h-6 text-brand-400" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="font-semibold text-white mb-1">
+                        <h3 className="text-lg font-semibold text-white mb-1.5">
                             Connect your Instagram account
                         </h3>
-                        <p className="text-sm text-surface-400 mb-3">
+                        <p className="text-sm text-surface-400 mb-4 leading-relaxed">
                             To start automating DMs, you need to connect your Instagram
                             Business or Creator account via the Meta API.
                         </p>
                         <Link
                             href="/dashboard/accounts"
-                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors"
+                            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl gradient-brand text-sm font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25"
                         >
                             Connect Account
-                            <ArrowUpRight className="w-3.5 h-3.5" />
+                            <ArrowUpRight className="w-4 h-4" />
                         </Link>
                     </div>
                 </motion.div>
