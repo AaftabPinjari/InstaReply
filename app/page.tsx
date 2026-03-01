@@ -32,23 +32,23 @@ export default function Home() {
       </div>
 
       {/* Navbar */}
-      <nav className="relative z-50 flex items-center justify-between px-6 md:px-12 py-5 max-w-7xl mx-auto">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
-            <Send className="w-4.5 h-4.5 text-white" />
+      <nav className="relative z-50 flex items-center justify-between px-4 sm:px-6 md:px-12 py-5 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
+            <Send className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">InstaReply</span>
+          <span className="text-lg sm:text-xl font-bold tracking-tight">InstaReply</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <Link
             href="/login"
-            className="px-5 py-2.5 text-sm font-medium text-surface-300 hover:text-white transition-colors"
+            className="px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-surface-300 hover:text-white transition-colors"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="px-5 py-2.5 text-sm font-semibold rounded-xl gradient-brand hover:opacity-90 transition-opacity shadow-lg shadow-brand-500/25"
+            className="px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl gradient-brand hover:opacity-90 transition-opacity shadow-lg shadow-brand-500/25 whitespace-nowrap"
           >
             Get Started Free
           </Link>
@@ -56,7 +56,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 pb-32">
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-12 pt-16 sm:pt-20 pb-24 sm:pb-32">
         <motion.div
           className="text-center max-w-3xl mx-auto"
           initial="hidden"
@@ -66,41 +66,41 @@ export default function Home() {
           <motion.div
             variants={fadeUp}
             custom={0}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-light text-sm text-surface-300 mb-8"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full glass-light text-xs sm:text-sm text-surface-300 mb-6 sm:mb-8"
           >
-            <Instagram className="w-4 h-4 text-accent-400" />
-            <span>Powered by the Official Meta API</span>
-            <Sparkles className="w-3.5 h-3.5 text-warning-400" />
+            <Instagram className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent-400 shrink-0" />
+            <span className="truncate">Powered by the Official Meta API</span>
+            <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-warning-400 shrink-0" />
           </motion.div>
 
           <motion.h1
             variants={fadeUp}
             custom={1}
-            className="text-5xl md:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6"
+            className="text-4xl sm:text-5xl md:text-7xl font-extrabold leading-[1.1] sm:leading-[1.05] tracking-tight mb-5 sm:mb-6"
           >
             Turn comments into{" "}
-            <span className="gradient-text">conversations</span>
+            <span className="gradient-text block sm:inline">conversations</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             custom={2}
-            className="text-lg md:text-xl text-surface-300 max-w-xl mx-auto mb-10 leading-relaxed"
+            className="text-base sm:text-lg md:text-xl text-surface-300 max-w-xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0"
           >
             Automatically DM anyone who comments on your Instagram posts with
             personalized templates. Drive followers, engagement, and sales on
             autopilot.
           </motion.p>
 
-          <motion.div variants={fadeUp} custom={3} className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <motion.div variants={fadeUp} custom={3} className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full px-4 sm:px-0">
             <Link
               href="/signup"
-              className="flex items-center gap-2 px-8 py-4 text-base font-semibold rounded-2xl gradient-brand hover:opacity-90 transition-all shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40 hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold rounded-2xl gradient-brand hover:opacity-90 transition-all shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40 hover:scale-[1.02] active:scale-[0.98]"
             >
               Start Free — No Card Needed
-              <ArrowRight className="w-4.5 h-4.5" />
+              <ArrowRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </Link>
-            <span className="text-sm text-surface-400">
+            <span className="text-xs sm:text-sm text-surface-400">
               100 free DMs/month included
             </span>
           </motion.div>
@@ -170,17 +170,18 @@ export default function Home() {
       </section>
 
       {/* Feature Cards */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pb-32">
-        <div className="text-center mb-16">
+      {/* Feature Cards */}
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-12 pb-24 sm:pb-32">
+        <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Everything you need to{" "}
             <span className="gradient-text">automate engagement</span>
           </h2>
-          <p className="text-surface-400 max-w-lg mx-auto">
+          <p className="text-surface-400 max-w-lg mx-auto px-4 sm:px-0">
             Built on the official Meta API. Enterprise-grade reliability, zero risk to your account.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {[
             {
               icon: Sparkles,
@@ -234,17 +235,17 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="relative z-10 max-w-3xl mx-auto px-6 md:px-12 pb-32">
-        <div className="glass rounded-3xl p-10 md:p-14 text-center glow-brand">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+      <section className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 md:px-12 pb-24 sm:pb-32">
+        <div className="glass rounded-3xl p-8 sm:p-10 md:p-14 text-center glow-brand border border-brand-500/20">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
             Ready to turn comments into customers?
           </h2>
-          <p className="text-surface-400 mb-8 max-w-md mx-auto">
+          <p className="text-sm sm:text-base text-surface-400 mb-8 max-w-md mx-auto">
             Set up in under 5 minutes. Connect your Instagram, build a template, and let InstaReply handle the rest.
           </p>
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 px-8 py-4 text-base font-semibold rounded-2xl gradient-brand hover:opacity-90 transition-all shadow-xl shadow-brand-500/25"
+            className="inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold rounded-2xl gradient-brand hover:opacity-90 transition-all shadow-xl shadow-brand-500/25"
           >
             Get Started Free
             <ArrowRight className="w-4.5 h-4.5" />
@@ -253,8 +254,8 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-8">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="relative z-10 border-t border-white/[0.06] py-8 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg gradient-brand flex items-center justify-center">
               <Send className="w-3.5 h-3.5 text-white" />

@@ -155,7 +155,7 @@ export default function DashboardPage() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
                 {statCards.map((stat, i) => (
                     <motion.div
                         key={stat.label}
@@ -163,11 +163,11 @@ export default function DashboardPage() {
                         initial="hidden"
                         animate="visible"
                         custom={i}
-                        className="glass-light rounded-2xl p-5 hover:bg-white/[0.05] transition-all"
+                        className="glass-light rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:bg-white/[0.05] transition-all flex flex-col justify-between"
                     >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-start justify-between mb-2 sm:mb-3">
                             <div
-                                className={`w-9 h-9 rounded-lg flex items-center justify-center ${stat.color === "brand"
+                                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 ${stat.color === "brand"
                                     ? "bg-brand-500/15 text-brand-400"
                                     : stat.color === "accent"
                                         ? "bg-accent-500/15 text-accent-400"
@@ -176,13 +176,17 @@ export default function DashboardPage() {
                                             : "bg-success-500/15 text-success-400"
                                     }`}
                             >
-                                <stat.icon className="w-4.5 h-4.5" />
+                                <stat.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-white mb-0.5">
-                            {stat.value.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-surface-400">{stat.label}</p>
+                        <div>
+                            <p className="text-xl sm:text-2xl font-bold text-white mb-0.5">
+                                {stat.value.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] sm:text-xs text-surface-400 leading-tight">
+                                {stat.label}
+                            </p>
+                        </div>
                     </motion.div>
                 ))}
             </div>

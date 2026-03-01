@@ -111,7 +111,7 @@ export default function DashboardLayout({
                     x: mobileOpen ? 0 : (typeof window !== 'undefined' && window.innerWidth < 768 ? -260 : 0)
                 }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className={`fixed left-0 top-0 h-screen border-r border-white/[0.06] bg-surface-950 z-[45] flex flex-col md:relative ${mobileOpen ? 'shadow-2xl' : ''
+                className={`fixed left-0 top-0 h-[100dvh] border-r border-white/[0.06] bg-surface-950 z-[45] flex flex-col md:relative ${mobileOpen ? 'shadow-2xl' : ''
                     }`}
             >
                 {/* Logo */}
@@ -178,55 +178,82 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
-                {/* Bottom */}
-                <div className="border-t border-white/[0.06] p-3 space-y-2 shrink-0">
-                    {/* User info */}
-                    <AnimatePresence>
-                        {(!collapsed || mobileOpen) && user && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="px-3 py-2"
-                            >
-                                <p className="text-xs font-medium text-white truncate">
-                                    {user.full_name || "User"}
-                                </p>
-                                <p className="text-xs text-surface-500 truncate">{user.email}</p>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                {/* Bottom Section */}
+                <div className="mt-auto border-t border-white/[0.06] p-4 flex flex-col gap-3 shrink-0 bg-surface-950">
+                    {/* User Profile */}
+                    {user && (
+                        <div className={`flex items-center ${collapsed && !mobileOpen ? 'justify-center' : 'gap-3 px-1'} w-full transition-all duration-300`}>
+                            <div className="w-9 h-9 rounded-full bg-brand-500/20 flex items-center justify-center shrink-0 border border-brand-500/30">
+                                <span className="text-sm font-bold text-brand-400">
+                                    {user.full_name ? user.full_name[0].toUpperCase() : user.email?.[0]?.toUpperCase() || "U"}
+                                </span>
+                            </div>
+                            <AnimatePresence>
+                                {(!collapsed || mobileOpen) && (
+                                    <motion.div
+                                        initial={{ opacity: 0, width: 0 }}
+                                        animate={{ opacity: 1, width: "auto" }}
+                                        exit={{ opacity: 0, width: 0 }}
+                                        className="flex-1 min-w-0 overflow-hidden"
+                                    >
+                                        <p className="text-sm font-bold text-white truncate">
+                                            {user.full_name || "User"}
+                                        </p>
+                                        <p className="text-[11px] font-medium text-surface-500 truncate mt-0.5">
+                                            {user.email}
+                                        </p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    )}
 
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-surface-400 hover:text-danger-400 hover:bg-danger-500/10 transition-all w-full"
-                    >
-                        <LogOut className="w-[18px] h-[18px] shrink-0" />
-                        <AnimatePresence>
-                            {(!collapsed || mobileOpen) && (
-                                <motion.span
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="whitespace-nowrap"
-                                >
-                                    Log out
-                                </motion.span>
+                    <div className="w-full h-px bg-white/[0.06] my-1" />
+
+                    <div className="flex flex-col gap-1 w-full">
+                        <button
+                            onClick={handleLogout}
+                            className={`flex items-center ${(!collapsed || mobileOpen) ? 'px-3 gap-3' : 'justify-center'} h-10 rounded-xl text-sm font-medium text-surface-400 hover:text-danger-400 hover:bg-danger-500/10 transition-all w-full group overflow-hidden`}
+                        >
+                            <LogOut className="w-[18px] h-[18px] shrink-0 group-hover:scale-110 transition-transform" />
+                            <AnimatePresence>
+                                {(!collapsed || mobileOpen) && (
+                                    <motion.span
+                                        initial={{ opacity: 0, width: 0 }}
+                                        animate={{ opacity: 1, width: "auto" }}
+                                        exit={{ opacity: 0, width: 0 }}
+                                        className="whitespace-nowrap overflow-hidden text-left flex-1"
+                                    >
+                                        Log out
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </button>
+
+                        {/* Collapse toggle (Desktop only) */}
+                        <button
+                            onClick={() => setCollapsed(!collapsed)}
+                            className={`hidden md:flex items-center ${!collapsed ? 'px-3 gap-3' : 'justify-center'} h-10 rounded-xl text-sm font-medium text-surface-500 hover:text-white hover:bg-white/[0.04] transition-all w-full overflow-hidden`}
+                        >
+                            {collapsed ? (
+                                <ChevronRight className="w-[18px] h-[18px] shrink-0" />
+                            ) : (
+                                <ChevronLeft className="w-[18px] h-[18px] shrink-0" />
                             )}
-                        </AnimatePresence>
-                    </button>
-
-                    {/* Collapse toggle (Desktop only) */}
-                    <button
-                        onClick={() => setCollapsed(!collapsed)}
-                        className="hidden md:flex items-center justify-center w-full py-2 rounded-xl text-surface-500 hover:text-surface-300 hover:bg-white/[0.04] transition-all"
-                    >
-                        {collapsed ? (
-                            <ChevronRight className="w-4 h-4" />
-                        ) : (
-                            <ChevronLeft className="w-4 h-4" />
-                        )}
-                    </button>
+                            <AnimatePresence>
+                                {!collapsed && (
+                                    <motion.span
+                                        initial={{ opacity: 0, width: 0 }}
+                                        animate={{ opacity: 1, width: "auto" }}
+                                        exit={{ opacity: 0, width: 0 }}
+                                        className="whitespace-nowrap overflow-hidden text-left flex-1"
+                                    >
+                                        Collapse menu
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </button>
+                    </div>
                 </div>
             </motion.aside>
 
