@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import {
@@ -12,6 +13,18 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 export default function AccountsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" />
+            </div>
+        }>
+            <AccountsContent />
+        </Suspense>
+    );
+}
+
+function AccountsContent() {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
