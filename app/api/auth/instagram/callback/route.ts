@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
         // 3. Get Instagram Business Account Info directly from IG Graph API
         const igUserRes = await fetch(
-            `https://graph.instagram.com/v22.0/me?fields=id,username,name,profile_picture_url&access_token=${accessToken}`
+            `https://graph.instagram.com/v22.0/me?fields=id,user_id,username,name,profile_picture_url&access_token=${accessToken}`
         );
         const igUserData = await igUserRes.json();
 
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        if (!igUserData.id) {
+        if (!igUserData.user_id) {
             console.error("[OAuth] No Instagram Account data returned");
             return NextResponse.redirect(
                 `${baseUrl}/dashboard/accounts?error=no_ig_business_account&perms=unknown&count=0`
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         }
 
         const igAccount = {
-            id: igUserData.id,
+            id: igUserData.user_id, // Store the Global ID (user_id) to match Webhooks
             username: igUserData.username,
             name: igUserData.name,
             profile_picture_url: igUserData.profile_picture_url
@@ -143,6 +143,28 @@ export async function GET(request: NextRequest) {
         const expiresAt = new Date(
             Date.now() + expiresIn * 1000
         ).toISOString();
+
+        // 4. Important: Explicitly subscribe to Instagram webhooks using this access token
+        // For Instagram Business Login, the app must explicitly subscribe to specific fields on the profile
+        try {
+            const subscribeUrl = new URL(`https://graph.instagram.com/v22.0/${igAccount.id}/subscribed_apps`);
+            subscribeUrl.searchParams.append("subscribed_fields", "comments,messages");
+            subscribeUrl.searchParams.append("access_token", accessToken);
+
+            const subscribeRes = await fetch(subscribeUrl.toString(), {
+                method: "POST"
+            });
+            const subscribeData = await subscribeRes.json();
+
+            if (subscribeData.success) {
+                console.log(`[OAuth] Successfully subscribed to webhooks for @${igAccount.username}`);
+            } else {
+                console.warn(`[OAuth] Webhook subscription failed for @${igAccount.username}:`, subscribeData);
+                // Optionally handle the failure (e.g. they didn't grant webhook permissions)
+            }
+        } catch (e) {
+            console.error(`[OAuth] Network error making webhook subscription for @${igAccount.username}:`, e);
+        }
 
         const { error: upsertError } = await adminSupabase.from("instagram_accounts").upsert(
             {
