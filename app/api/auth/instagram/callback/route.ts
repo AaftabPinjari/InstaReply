@@ -113,15 +113,31 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${baseUrl}/login`);
         }
 
-        // Use a service-role client for database writes to bypass RLS.
-        // This ensures the upsert works even if the ig_user_id row
-        // currently belongs to a different InstaReply user.
+        // Use a service-role client for database reads/writes to bypass RLS.
         const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
         const adminSupabase = createSupabaseClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
+        // Check if this Instagram account is already connected to another user
+        const { data: existingAccount } = await adminSupabase
+            .from("instagram_accounts")
+            .select("user_id, ig_username")
+            .eq("ig_user_id", String(igAccount.id))
+            .maybeSingle();
+
+        if (existingAccount && existingAccount.user_id !== user.id) {
+            // Another user currently has this IG account connected → block it
+            console.error(`[OAuth] IG account @${igAccount.username} is already connected to another user.`);
+            return NextResponse.redirect(
+                `${baseUrl}/dashboard/accounts?error=already_connected&message=${encodeURIComponent(
+                    `@${igAccount.username || igAccount.id} is already connected to another InstaReply account. The other user must disconnect it first.`
+                )}`
+            );
+        }
+
+        // Either the account doesn't exist (fresh connect) or belongs to this user (reconnect)
         const expiresAt = new Date(
             Date.now() + expiresIn * 1000
         ).toISOString();
@@ -131,11 +147,11 @@ export async function GET(request: NextRequest) {
                 user_id: user.id,
                 ig_user_id: String(igAccount.id),
                 ig_username: igAccount.username || "",
-                access_token: accessToken, // Store the long-lived user token
+                access_token: accessToken,
                 token_expires_at: expiresAt,
                 connected_at: new Date().toISOString(),
-                page_id: pageWithIg.id, // Good to store the linked Page ID too
-                page_access_token: pageWithIg.access_token, // Added back for Messaging API
+                page_id: pageWithIg.id,
+                page_access_token: pageWithIg.access_token,
             },
             { onConflict: "ig_user_id" }
         );
