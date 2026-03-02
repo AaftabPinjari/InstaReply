@@ -75,6 +75,11 @@ function AccountsContent() {
                             {errorMessage || errorParam}.
                             If you are testing multiple users, ensure the logged-in Facebook user uses an account that has Admin access to the linked Facebook Page.
                         </p>
+                        {searchParams.get("debug") && (
+                            <p className="text-[10px] text-red-400/50 mt-2 font-mono">
+                                Debug: {searchParams.get("debug")}
+                            </p>
+                        )}
                     </div>
                 </div>
             )}

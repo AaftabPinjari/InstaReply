@@ -30,8 +30,11 @@ export async function GET(request: NextRequest) {
         if (!fbTokenRes.ok || !fbTokenData.access_token) {
             console.error("[OAuth] FB Token exchange failed:", fbTokenData);
             const fbError = fbTokenData?.error?.message || JSON.stringify(fbTokenData);
+            // Temporary debug: show partial env values to verify Vercel config
+            const secret = process.env.META_APP_SECRET || "MISSING";
+            const debugInfo = `secret_start=${secret.slice(0, 4)}...${secret.slice(-4)}_appid=${process.env.META_APP_ID || "MISSING"}`;
             return NextResponse.redirect(
-                `${baseUrl}/dashboard/accounts?error=token_exchange_failed&message=${encodeURIComponent(fbError)}`
+                `${baseUrl}/dashboard/accounts?error=token_exchange_failed&message=${encodeURIComponent(fbError)}&debug=${encodeURIComponent(debugInfo)}`
             );
         }
 
