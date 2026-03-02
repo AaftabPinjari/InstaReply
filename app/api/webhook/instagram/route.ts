@@ -235,6 +235,37 @@ async function handleComment(
             await supabase.from("dm_logs")
                 .update({ status: "sent" })
                 .eq("comment_id", commentId);
+
+            // PUBLIC COMMENT REPLY: If the template has a public reply enabled, post it
+            if (automation.template.comment_reply_enabled && automation.template.comment_reply_text) {
+                let replyText = automation.template.comment_reply_text;
+                replyText = replyText.replace(/\{\{commenter_name\}\}/g, from.username);
+                replyText = replyText.replace(/\{\{your_username\}\}/g, account.ig_username);
+
+                console.log(`[Webhook] Posting public reply: "${replyText}"`);
+
+                try {
+                    const replyResponse = await fetch(
+                        `https://graph.instagram.com/v22.0/${commentId}/replies`,
+                        {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${tokenToUse}`,
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ message: replyText }),
+                        }
+                    );
+                    const replyResult = await replyResponse.json();
+                    if (replyResponse.ok) {
+                        console.log("[Webhook] Public reply posted successfully:", replyResult);
+                    } else {
+                        console.error("[Webhook] Public reply failed:", replyResult);
+                    }
+                } catch (replyError: any) {
+                    console.error("[Webhook] Error posting public reply:", replyError.message);
+                }
+            }
         } else {
             console.error("[Webhook] DM send failed:", result);
             await supabase.from("dm_logs")

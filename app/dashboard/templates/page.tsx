@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, FileText, Edit3, Trash2, Save, X, Eye, Sparkles } from "lucide-react";
+import { Plus, FileText, Edit3, Trash2, Save, X, Eye, Sparkles, MessageSquareReply, ToggleLeft, ToggleRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Template {
     id: string;
     name: string;
     message_text: string;
+    comment_reply_text: string | null;
+    comment_reply_enabled: boolean;
     is_default: boolean;
     created_at: string;
 }
@@ -21,6 +23,11 @@ const VARIABLES = [
     { label: "Follow Button", value: "{{follow_button}}" },
 ];
 
+const REPLY_VARIABLES = [
+    { label: "Commenter Name", value: "{{commenter_name}}" },
+    { label: "Your Username", value: "{{your_username}}" },
+];
+
 export default function TemplatesPage() {
     const queryClient = useQueryClient();
     const supabase = createClient();
@@ -29,6 +36,8 @@ export default function TemplatesPage() {
     const [editing, setEditing] = useState<Template | null>(null);
     const [name, setName] = useState("");
     const [msg, setMsg] = useState("");
+    const [commentReply, setCommentReply] = useState("");
+    const [commentReplyEnabled, setCommentReplyEnabled] = useState(false);
     const [preview, setPreview] = useState(false);
 
     // Fetch templates
@@ -52,17 +61,28 @@ export default function TemplatesPage() {
         mutationFn: async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
+            const payload = {
+                name,
+                message_text: msg,
+                comment_reply_text: commentReplyEnabled ? commentReply : null,
+                comment_reply_enabled: commentReplyEnabled,
+            };
             if (editing) {
-                const { error } = await supabase.from("dm_templates").update({ name, message_text: msg, updated_at: new Date().toISOString() }).eq("id", editing.id);
+                const { error } = await supabase
+                    .from("dm_templates")
+                    .update({ ...payload, updated_at: new Date().toISOString() })
+                    .eq("id", editing.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from("dm_templates").insert({ user_id: user.id, name, message_text: msg });
+                const { error } = await supabase
+                    .from("dm_templates")
+                    .insert({ user_id: user.id, ...payload });
                 if (error) throw error;
             }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["dm_templates"] });
-            setShowEditor(false); setEditing(null); setName(""); setMsg("");
+            setShowEditor(false); setEditing(null); setName(""); setMsg(""); setCommentReply(""); setCommentReplyEnabled(false);
         },
     });
 
@@ -85,10 +105,20 @@ export default function TemplatesPage() {
     const del = (id: string) => deleteMutation.mutate(id);
 
     const open = (t?: Template) => {
-        setEditing(t || null); setName(t?.name || ""); setMsg(t?.message_text || ""); setShowEditor(true); setPreview(false);
+        setEditing(t || null);
+        setName(t?.name || "");
+        setMsg(t?.message_text || "");
+        setCommentReply(t?.comment_reply_text || "");
+        setCommentReplyEnabled(t?.comment_reply_enabled || false);
+        setShowEditor(true);
+        setPreview(false);
     };
 
-    const renderPreview = (t: string) => t.replace(/\{\{commenter_name\}\}/g, "Alex").replace(/\{\{post_caption\}\}/g, "Check out our new product! 🚀").replace(/\{\{your_username\}\}/g, "yourbrand").replace(/\{\{follow_button\}\}/g, "\n\n[ Button: Follow @yourbrand ]");
+    const renderPreview = (t: string) =>
+        t.replace(/\{\{commenter_name\}\}/g, "Alex")
+            .replace(/\{\{post_caption\}\}/g, "Check out our new product! 🚀")
+            .replace(/\{\{your_username\}\}/g, "yourbrand")
+            .replace(/\{\{follow_button\}\}/g, "\n\n[ Button: Follow @yourbrand ]");
 
     return (
         <div className="space-y-8">
@@ -118,26 +148,31 @@ export default function TemplatesPage() {
                                 <button onClick={() => setShowEditor(false)} className="p-2 -mr-2 text-surface-500 hover:text-surface-300 transition-colors"><X className="w-5 h-5" /></button>
                             </div>
                             <div className="space-y-6">
+                                {/* Template Name */}
                                 <div>
                                     <label className="block text-sm font-medium text-surface-300 mb-2.5">Template Name</label>
                                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome Message" className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm" />
                                 </div>
+
+                                {/* DM Message */}
                                 <div>
                                     <div className="flex items-center justify-between mb-2.5">
-                                        <label className="text-sm font-medium text-surface-300">Message</label>
+                                        <label className="text-sm font-medium text-surface-300">Private DM Message</label>
                                         <button onClick={() => setPreview(!preview)} className="flex items-center gap-2 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors">
                                             {preview ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                             {preview ? "Edit" : "Preview"}
                                         </button>
                                     </div>
                                     {preview ? (
-                                        <div className="w-full min-h-[160px] px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-surface-200 leading-relaxed whitespace-pre-wrap">{renderPreview(msg) || <span className="text-surface-500 italic">Nothing to preview yet...</span>}</div>
+                                        <div className="w-full min-h-[120px] px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-surface-200 leading-relaxed whitespace-pre-wrap">{renderPreview(msg) || <span className="text-surface-500 italic">Nothing to preview yet...</span>}</div>
                                     ) : (
-                                        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Hey {{commenter_name}}! Thanks for your comment 🙌..." rows={6} className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm resize-none" />
+                                        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Hey {{commenter_name}}! Thanks for your comment 🙌..." rows={5} className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-surface-500 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/25 transition-all text-sm resize-none" />
                                     )}
                                 </div>
+
+                                {/* DM Variables */}
                                 <div>
-                                    <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Dynamic Variables</label>
+                                    <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">DM Variables</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {VARIABLES.map((v) => (
                                             <button
@@ -151,6 +186,73 @@ export default function TemplatesPage() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Divider */}
+                                <div className="border-t border-white/[0.06]" />
+
+                                {/* Public Comment Reply Toggle */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-accent-500/15 text-accent-400 flex items-center justify-center">
+                                                <MessageSquareReply className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-white">Public Comment Reply</p>
+                                                <p className="text-[11px] text-surface-500">Also reply publicly under their comment</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setCommentReplyEnabled(!commentReplyEnabled)}
+                                            className="transition-colors"
+                                        >
+                                            {commentReplyEnabled ? (
+                                                <ToggleRight className="w-9 h-9 text-brand-400" />
+                                            ) : (
+                                                <ToggleLeft className="w-9 h-9 text-surface-600" />
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    <AnimatePresence>
+                                        {commentReplyEnabled && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: "auto" }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="space-y-3 overflow-hidden"
+                                            >
+                                                {preview ? (
+                                                    <div className="w-full min-h-[60px] px-4 py-3.5 rounded-xl bg-white/[0.04] border border-accent-500/20 text-sm text-surface-200 leading-relaxed whitespace-pre-wrap">
+                                                        {renderPreview(commentReply) || <span className="text-surface-500 italic">Nothing to preview yet...</span>}
+                                                    </div>
+                                                ) : (
+                                                    <textarea
+                                                        value={commentReply}
+                                                        onChange={(e) => setCommentReply(e.target.value)}
+                                                        placeholder="Thanks @{{commenter_name}}! Just sent you a DM with the details 📩"
+                                                        rows={3}
+                                                        className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-accent-500/20 text-white placeholder:text-surface-500 outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/25 transition-all text-sm resize-none"
+                                                    />
+                                                )}
+                                                <div className="flex flex-wrap gap-2">
+                                                    {REPLY_VARIABLES.map((v) => (
+                                                        <button
+                                                            key={`reply-${v.value}`}
+                                                            onClick={() => setCommentReply((p) => p + v.value)}
+                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-surface-300 text-[11px] font-medium hover:bg-accent-500/10 hover:border-accent-500/20 hover:text-accent-400 transition-all"
+                                                        >
+                                                            <Sparkles className="w-3 h-3 shrink-0" />
+                                                            <span>{v.label}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* Actions */}
                                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
                                     <button onClick={() => setShowEditor(false)} className="w-full sm:flex-1 py-3.5 rounded-xl border border-white/[0.08] text-sm font-semibold text-surface-300 hover:bg-white/[0.04] transition-all">Cancel</button>
                                     <button onClick={save} disabled={!name.trim() || !msg.trim() || saveMutation.isPending} className="w-full sm:flex-1 py-3.5 rounded-xl gradient-brand text-sm font-bold text-white hover:opacity-90 transition-all shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
@@ -173,7 +275,7 @@ export default function TemplatesPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {templates.map((t, i) => (
+                    {templates.map((t: Template, i: number) => (
                         <motion.div key={t.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-light rounded-2xl p-5 group hover:bg-white/[0.05] transition-all">
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-2.5">
@@ -186,7 +288,17 @@ export default function TemplatesPage() {
                                 </div>
                             </div>
                             <p className="text-sm text-surface-400 leading-relaxed line-clamp-3">{t.message_text}</p>
-                            <p className="text-[10px] text-surface-600 mt-3">Created {new Date(t.created_at).toLocaleDateString()}</p>
+
+                            {/* Show public reply badge if enabled */}
+                            <div className="flex items-center gap-2 mt-3">
+                                {t.comment_reply_enabled && (
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-accent-500/10 text-accent-400 font-semibold uppercase tracking-wider">
+                                        <MessageSquareReply className="w-3 h-3" />
+                                        Public Reply
+                                    </span>
+                                )}
+                                <span className="text-[10px] text-surface-600">Created {new Date(t.created_at).toLocaleDateString()}</span>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
