@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
 
         if (!fbTokenRes.ok || !fbTokenData.access_token) {
             console.error("[OAuth] FB Token exchange failed:", fbTokenData);
+            const fbError = fbTokenData?.error?.message || JSON.stringify(fbTokenData);
             return NextResponse.redirect(
-                `${baseUrl}/dashboard/accounts?error=token_exchange_failed`
+                `${baseUrl}/dashboard/accounts?error=token_exchange_failed&message=${encodeURIComponent(fbError)}`
             );
         }
 
