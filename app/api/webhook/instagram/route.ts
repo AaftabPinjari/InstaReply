@@ -85,25 +85,7 @@ async function handleComment(
         `[Webhook] Processing comment ${commentId} from @${from.username} (ID: ${from.id}) on Media ${media.id}`
     );
 
-    // 1. IGNORE BOT'S OWN COMMENTS (Crucial to prevent loops!)
-    if (from.id === igUserId) {
-        console.log("[Webhook] Ignoring bot's own comment");
-        return;
-    }
-
-    // 2. CHECK DEDUP IMMEDIATELY (Move as early as possible)
-    const { data: existing } = await supabase
-        .from("dm_logs")
-        .select("id")
-        .eq("comment_id", commentId)
-        .maybeSingle();
-
-    if (existing) {
-        console.log(`[Webhook] Already replied to comment ${commentId}. Skipping.`);
-        return;
-    }
-
-    // Find the Instagram account in our DB
+    // 1. Find the Instagram account in our DB FIRST
     const { data: account } = await supabase
         .from("instagram_accounts")
         .select("id, user_id, access_token, page_id, page_access_token, ig_username")
@@ -112,6 +94,24 @@ async function handleComment(
 
     if (!account) {
         console.log("[Webhook] No account found for IG user:", igUserId);
+        return;
+    }
+
+    // 2. IGNORE BOT'S OWN COMMENTS (Crucial to prevent loops!)
+    if (String(from.id) === String(igUserId) || from.username === account.ig_username) {
+        console.log(`[Webhook] Ignoring comment from account owner (ID: ${from.id}, Username: ${from.username})`);
+        return;
+    }
+
+    // 3. CHECK DEDUP IMMEDIATELY
+    const { data: existing } = await supabase
+        .from("dm_logs")
+        .select("id")
+        .eq("comment_id", commentId)
+        .maybeSingle();
+
+    if (existing) {
+        console.log(`[Webhook] Already replied to comment ${commentId}. Skipping.`);
         return;
     }
 
