@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
         const igAccount = pageWithIg.instagram_business_account;
 
         // 4. Save to database
+        // Use the session-aware client to identify the logged-in user
         const supabase = await createClient();
         const {
             data: { user },
@@ -112,11 +113,20 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${baseUrl}/login`);
         }
 
+        // Use a service-role client for database writes to bypass RLS.
+        // This ensures the upsert works even if the ig_user_id row
+        // currently belongs to a different InstaReply user.
+        const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
+        const adminSupabase = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
         const expiresAt = new Date(
             Date.now() + expiresIn * 1000
         ).toISOString();
 
-        const { error: upsertError } = await supabase.from("instagram_accounts").upsert(
+        const { error: upsertError } = await adminSupabase.from("instagram_accounts").upsert(
             {
                 user_id: user.id,
                 ig_user_id: String(igAccount.id),

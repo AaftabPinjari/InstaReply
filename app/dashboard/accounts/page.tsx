@@ -1,17 +1,25 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import {
     Instagram,
     Plus,
     CheckCircle2,
     Trash2,
+    AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AccountsPage() {
     const supabase = createClient();
     const queryClient = useQueryClient();
+    const searchParams = useSearchParams();
+
+    // Read URL callback errors or success messages
+    const errorParam = searchParams.get("error");
+    const successParam = searchParams.get("success");
+    const errorMessage = searchParams.get("message");
 
     const { data: accounts = [], isLoading: loading } = useQuery({
         queryKey: ["instagram_accounts"],
@@ -45,6 +53,25 @@ export default function AccountsPage() {
 
     return (
         <div className="space-y-8">
+            {errorParam && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-semibold text-sm">Failed to connect Instagram account</p>
+                        <p className="text-xs text-red-400/80 mt-1">
+                            {errorMessage || errorParam}.
+                            If you are testing multiple users, ensure the logged-in Facebook user uses an account that has Admin access to the linked Facebook Page.
+                        </p>
+                    </div>
+                </div>
+            )}
+            {successParam === "connected" && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <p className="font-semibold text-sm">Successfully connected Instagram account!</p>
+                </div>
+            )}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
