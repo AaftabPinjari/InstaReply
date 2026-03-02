@@ -245,17 +245,13 @@ async function handleComment(
                 console.log(`[Webhook] Posting public reply: "${replyText}"`);
 
                 try {
-                    const replyResponse = await fetch(
-                        `https://graph.instagram.com/v22.0/${commentId}/replies`,
-                        {
-                            method: "POST",
-                            headers: {
-                                Authorization: `Bearer ${tokenToUse}`,
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({ message: replyText }),
-                        }
-                    );
+                    const replyUrl = new URL(`https://graph.instagram.com/v22.0/${commentId}/replies`);
+                    replyUrl.searchParams.set("message", replyText);
+                    replyUrl.searchParams.set("access_token", tokenToUse);
+
+                    const replyResponse = await fetch(replyUrl.toString(), {
+                        method: "POST",
+                    });
                     const replyResult = await replyResponse.json();
                     if (replyResponse.ok) {
                         console.log("[Webhook] Public reply posted successfully:", replyResult);
