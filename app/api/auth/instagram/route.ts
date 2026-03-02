@@ -11,21 +11,19 @@ export async function GET(request: NextRequest) {
 
     const redirectUri = `${baseUrl}/api/auth/instagram/callback`;
 
+    // Strictly only Instagram Business scopes for the dedicated Instagram flow
     const scopes = [
-        "instagram_basic",
-        "instagram_manage_comments",
-        "instagram_manage_messages",
-        "pages_show_list",
-        "pages_read_engagement",
-        "public_profile",
-        "business_management",
+        "instagram_business_basic",
+        "instagram_business_manage_messages",
+        "instagram_business_manage_comments",
+        "instagram_business_content_publish",
+        "instagram_business_manage_insights"
     ].join(",");
 
-    // Use Facebook OAuth for Instagram Graph API (Business/Creator)
-    // Changed auth_type to rerequest to force the permission selection screen
-    const authUrl = `https://www.facebook.com/v22.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(
+    // Switched to the dedicated Instagram Business Login endpoint
+    const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(
         redirectUri
-    )}&response_type=code&scope=${scopes}&auth_type=rerequest`;
+    )}&response_type=code&scope=${scopes}&force_reauth=true`;
 
     return NextResponse.redirect(authUrl);
 }

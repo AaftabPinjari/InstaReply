@@ -156,9 +156,12 @@ async function handleComment(
     console.log(`[Webhook] Preparing to send DM using ${automation.template.name}. Text: "${message}"`);
 
     // Use page_access_token if available (it acts on behalf of the page)
-    const tokenToUse = account.page_access_token || account.access_token;
-    // We can use PAGE_ID/messages or IG_USER_ID/messages endpoint
-    const endpointId = account.page_id || igUserId;
+    const tokenToUse = account.access_token; // For both flows, we stored the correct auth token here
+
+    // Choose the correct endpoint depending on login method
+    const baseGraphUrl = account.page_id
+        ? `https://graph.facebook.com/v22.0/${account.page_id}/messages`
+        : `https://graph.instagram.com/v22.0/${igUserId}/messages`;
 
     // Build the Instagram specific message payload
     let messagePayload: any = {
@@ -187,7 +190,7 @@ async function handleComment(
     // Send the private reply DM
     try {
         const response = await fetch(
-            `https://graph.facebook.com/v22.0/${endpointId}/messages`,
+            baseGraphUrl,
             {
                 method: "POST",
                 headers: {
