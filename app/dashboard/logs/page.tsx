@@ -27,9 +27,22 @@ export default function LogsPage() {
     const { data: logs = [], isLoading: loading, refetch } = useQuery({
         queryKey: ["dm_logs"],
         queryFn: async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Not authenticated");
+
+            // Get this user's automation IDs to scope the logs
+            const { data: userAutomations } = await supabase
+                .from("automations")
+                .select("id")
+                .eq("user_id", user.id);
+
+            const automationIds = (userAutomations || []).map(a => a.id);
+            if (automationIds.length === 0) return [];
+
             const { data, error } = await supabase
                 .from("dm_logs")
                 .select("*")
+                .in("automation_id", automationIds)
                 .order("sent_at", { ascending: false })
                 .limit(100);
             if (error) throw error;

@@ -47,38 +47,62 @@ export default function DashboardPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
-            // Execute all queries in parallel for maximum speed
+            // First, get this user's automation IDs so we can scope dm_logs
             const [
                 { data: accounts },
                 { count: activeAutomations },
-                { count: totalCount },
-                { data: logs }
+                { data: userAutomations }
             ] = await Promise.all([
                 supabase.from("instagram_accounts").select("id").eq("user_id", user.id),
                 supabase.from("automations").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("is_active", true),
-                supabase.from("dm_logs").select("*", { count: "exact", head: true }).eq("status", "sent"),
-                supabase.from("dm_logs")
-                    .select("id, commenter_username, message_sent, status, sent_at")
-                    .order("sent_at", { ascending: false })
-                    .limit(5)
+                supabase.from("automations").select("id").eq("user_id", user.id),
             ]);
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const { count: todayCount } = await supabase
-                .from("dm_logs")
-                .select("*", { count: "exact", head: true })
-                .eq("status", "sent")
-                .gte("sent_at", today.toISOString());
+            const automationIds = (userAutomations || []).map(a => a.id);
+
+            // Now query dm_logs scoped to this user's automations
+            let totalCount = 0;
+            let todayCount = 0;
+            let logs: any[] = [];
+
+            if (automationIds.length > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const [
+                    { count: total },
+                    { count: todayTotal },
+                    { data: recentLogs }
+                ] = await Promise.all([
+                    supabase.from("dm_logs")
+                        .select("*", { count: "exact", head: true })
+                        .eq("status", "sent")
+                        .in("automation_id", automationIds),
+                    supabase.from("dm_logs")
+                        .select("*", { count: "exact", head: true })
+                        .eq("status", "sent")
+                        .in("automation_id", automationIds)
+                        .gte("sent_at", today.toISOString()),
+                    supabase.from("dm_logs")
+                        .select("id, commenter_username, message_sent, status, sent_at")
+                        .in("automation_id", automationIds)
+                        .order("sent_at", { ascending: false })
+                        .limit(5),
+                ]);
+
+                totalCount = total || 0;
+                todayCount = todayTotal || 0;
+                logs = recentLogs || [];
+            }
 
             return {
                 stats: {
                     connectedAccounts: accounts?.length || 0,
                     activeAutomations: activeAutomations || 0,
-                    dmsSentToday: todayCount || 0,
-                    dmsSentTotal: totalCount || 0,
+                    dmsSentToday: todayCount,
+                    dmsSentTotal: totalCount,
                 },
-                recentLogs: logs || [],
+                recentLogs: logs,
                 hasAccount: accounts && accounts.length > 0,
             };
         }
