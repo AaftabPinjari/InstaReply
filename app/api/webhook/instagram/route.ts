@@ -82,8 +82,26 @@ async function handleComment(
     const { id: commentId, text, from, media } = commentData;
 
     console.log(
-        `[Webhook] Comment from @${from.username} on media ${media.id}: "${text}"`
+        `[Webhook] Processing comment ${commentId} from @${from.username} (ID: ${from.id}) on Media ${media.id}`
     );
+
+    // 1. IGNORE BOT'S OWN COMMENTS (Crucial to prevent loops!)
+    if (from.id === igUserId) {
+        console.log("[Webhook] Ignoring bot's own comment");
+        return;
+    }
+
+    // 2. CHECK DEDUP IMMEDIATELY (Move as early as possible)
+    const { data: existing } = await supabase
+        .from("dm_logs")
+        .select("id")
+        .eq("comment_id", commentId)
+        .maybeSingle();
+
+    if (existing) {
+        console.log(`[Webhook] Already replied to comment ${commentId}. Skipping.`);
+        return;
+    }
 
     // Find the Instagram account in our DB
     const { data: account } = await supabase
@@ -130,18 +148,6 @@ async function handleComment(
         return;
     }
 
-    // Check dedup - don't reply to same comment twice
-    const { data: existing } = await supabase
-        .from("dm_logs")
-        .select("id")
-        .eq("comment_id", commentId)
-        .single();
-
-    if (existing) {
-        console.log("[Webhook] Already replied to this comment");
-        return;
-    }
-
     // Build the message from template
     let message = automation.template.message_text;
     message = message.replace(/\{\{commenter_name\}\}/g, from.username);
@@ -155,8 +161,26 @@ async function handleComment(
 
     console.log(`[Webhook] Preparing to send DM using ${automation.template.name}. Text: "${message}"`);
 
+    // 3. ATTEMPT TO INSERT LOG IMMEDIATELY (Soft lock)
+    // We do this before the fetch so that even if the fetch is slow, 
+    // a concurrent webhook retry will hit the unique constraint and stop.
+    const { error: insertError } = await supabase.from("dm_logs").insert({
+        automation_id: automation.id,
+        comment_id: commentId,
+        commenter_ig_id: from.id,
+        commenter_username: from.username,
+        message_sent: message,
+        status: "sending",
+        sent_at: new Date().toISOString(),
+    });
+
+    if (insertError) {
+        console.log(`[Webhook] Could not create log for ${commentId} (likely already processing). Skipping.`);
+        return;
+    }
+
     // Use page_access_token if available (it acts on behalf of the page)
-    const tokenToUse = account.access_token; // For both flows, we stored the correct auth token here
+    const tokenToUse = account.access_token;
 
     // Choose the correct endpoint depending on login method
     const baseGraphUrl = account.page_id
@@ -208,39 +232,25 @@ async function handleComment(
 
         if (response.ok) {
             console.log("[Webhook] DM sent successfully:", result);
-            await supabase.from("dm_logs").insert({
-                automation_id: automation.id,
-                comment_id: commentId,
-                commenter_ig_id: from.id,
-                commenter_username: from.username,
-                message_sent: message,
-                status: "sent",
-                sent_at: new Date().toISOString(),
-            });
+            await supabase.from("dm_logs")
+                .update({ status: "sent" })
+                .eq("comment_id", commentId);
         } else {
             console.error("[Webhook] DM send failed:", result);
-            await supabase.from("dm_logs").insert({
-                automation_id: automation.id,
-                comment_id: commentId,
-                commenter_ig_id: from.id,
-                commenter_username: from.username,
-                message_sent: message,
-                status: "failed",
-                error_message: result.error?.message || JSON.stringify(result),
-                sent_at: new Date().toISOString(),
-            });
+            await supabase.from("dm_logs")
+                .update({
+                    status: "failed",
+                    error_message: result.error?.message || JSON.stringify(result)
+                })
+                .eq("comment_id", commentId);
         }
     } catch (error: any) {
         console.error("[Webhook] Error sending DM:", error);
-        await supabase.from("dm_logs").insert({
-            automation_id: automation.id,
-            comment_id: commentId,
-            commenter_ig_id: from.id,
-            commenter_username: from.username,
-            message_sent: message,
-            status: "failed",
-            error_message: error.message,
-            sent_at: new Date().toISOString(),
-        });
+        await supabase.from("dm_logs")
+            .update({
+                status: "failed",
+                error_message: error.message
+            })
+            .eq("comment_id", commentId);
     }
 }
