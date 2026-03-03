@@ -1,0 +1,6 @@
+[build]
+  command = "next build --webpack"
+  publish = ".next"
+
+[build.environment]
+  NEXT_PRIVATE_BUNDLER = "webpack"
