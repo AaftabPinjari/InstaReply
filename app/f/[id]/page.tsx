@@ -30,25 +30,60 @@ export default function ExternalFlowPage() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [allSteps, setAllSteps] = useState<FlowStep[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Initial Fetch
     useEffect(() => {
         async function fetchFlow() {
-            const { data: flow } = await supabase.from("conversation_flows").select("name").eq("id", flowId).single();
-            if (flow) setFlowName(flow.name);
+            try {
+                // Use maybeSingle to not throw on non-existent ID
+                const { data: flow, error: flowError } = await supabase
+                    .from("conversation_flows")
+                    .select("name, is_active")
+                    .eq("id", flowId)
+                    .maybeSingle();
 
-            const { data: steps } = await supabase.from("flow_steps").select("*").eq("flow_id", flowId).order("step_index", { ascending: true });
+                if (flowError) throw flowError;
 
-            if (steps && steps.length > 0) {
-                setAllSteps(steps);
-                // Start with first step
-                addBotMessage(steps[0]);
+                if (!flow) {
+                    setError("Flow not found");
+                    setLoading(false);
+                    return;
+                }
+
+                if (!flow.is_active) {
+                    setError("This conversation has expired or is inactive.");
+                    setLoading(false);
+                    return;
+                }
+
+                setFlowName(flow.name);
+
+                const { data: steps, error: stepsError } = await supabase
+                    .from("flow_steps")
+                    .select("*")
+                    .eq("flow_id", flowId)
+                    .order("step_index", { ascending: true });
+
+                if (stepsError) throw stepsError;
+
+                if (steps && steps.length > 0) {
+                    setAllSteps(steps);
+                    // Start with first step
+                    addBotMessage(steps[0]);
+                } else {
+                    setError("This flow has no steps yet.");
+                }
+            } catch (err: any) {
+                console.error("Error fetching flow:", err);
+                setError(err.message || "Failed to load flow");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         }
-        fetchFlow();
+        if (flowId) fetchFlow();
     }, [flowId]);
 
     // Scroll to bottom
@@ -100,6 +135,22 @@ export default function ExternalFlowPage() {
         );
     }
 
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black px-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/[0.1] flex items-center justify-center mb-6">
+                    <Instagram className="w-8 h-8 text-surface-400" />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Flow Unavailable</h2>
+                <p className="text-sm text-surface-500 max-w-xs">{error}</p>
+                <div className="mt-8 flex items-center gap-2 opacity-30">
+                    <span className="text-[10px] text-surface-400">Powered by</span>
+                    <span className="text-[10px] font-bold tracking-tight bg-gradient-to-r from-brand-400 to-accent-400 bg-clip-text text-transparent italic">InstaReply</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-[100dvh] bg-black text-white font-sans overflow-hidden">
             {/* Header */}
@@ -130,8 +181,8 @@ export default function ExternalFlowPage() {
                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.sender === "user"
-                                        ? "bg-brand-500 text-white rounded-tr-none"
-                                        : "bg-white/[0.08] text-white rounded-tl-none border border-white/[0.05]"
+                                    ? "bg-brand-500 text-white rounded-tr-none"
+                                    : "bg-white/[0.08] text-white rounded-tl-none border border-white/[0.05]"
                                     } shadow-lg`}
                             >
                                 {msg.text}
