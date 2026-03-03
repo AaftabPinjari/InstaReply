@@ -18,7 +18,7 @@ interface Template {
 }
 
 interface FlowButton {
-    type: "url" | "quick_reply";
+    type: "url" | "quick_reply" | "flow";
     title: string;
     url?: string;
     next_step_id?: string | null;
@@ -61,7 +61,22 @@ export default function TemplatesPage() {
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false });
             if (error) throw error;
-            return data;
+            return data || [];
+        },
+    });
+
+    // Fetch conversation flows for the flow dropdown
+    const { data: flows = [] } = useQuery({
+        queryKey: ["conversation_flows"],
+        queryFn: async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Not authenticated");
+            const { data, error } = await supabase
+                .from("conversation_flows")
+                .select("id, name")
+                .eq("user_id", user.id);
+            if (error) throw error;
+            return data || [];
         },
     });
 
@@ -249,6 +264,12 @@ export default function TemplatesPage() {
                                                             Link
                                                         </button>
                                                         <button
+                                                            onClick={() => updateButton(idx, { type: "flow" })}
+                                                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${btn.type === "flow" ? "bg-white/[0.08] text-white" : "text-surface-500 hover:text-surface-300"}`}
+                                                        >
+                                                            Flow
+                                                        </button>
+                                                        <button
                                                             onClick={() => updateButton(idx, { type: "quick_reply" })}
                                                             className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${btn.type === "quick_reply" ? "bg-white/[0.08] text-white" : "text-surface-500 hover:text-surface-300"}`}
                                                         >
@@ -274,6 +295,18 @@ export default function TemplatesPage() {
                                                         placeholder="https://..."
                                                         className="w-full px-3 py-2 rounded-lg bg-surface-900/30 border border-white/[0.05] text-white outline-none focus:border-brand-500/30 text-xs transition-all"
                                                     />
+                                                )}
+                                                {btn.type === "flow" && (
+                                                    <select
+                                                        value={btn.url || ""}
+                                                        onChange={(e) => updateButton(idx, { url: e.target.value })}
+                                                        className="w-full px-3 py-2 rounded-lg bg-surface-900/30 border border-white/[0.05] text-white outline-none focus:border-brand-500/30 text-xs transition-all appearance-none"
+                                                    >
+                                                        <option value="" className="bg-surface-900">Select a Flow...</option>
+                                                        {flows.map((f: any) => (
+                                                            <option key={f.id} value={f.id} className="bg-surface-900">{f.name}</option>
+                                                        ))}
+                                                    </select>
                                                 )}
                                             </div>
                                         ))}

@@ -297,11 +297,11 @@ async function handleComment(
                         template_type: "button",
                         text: message,
                         buttons: automation.template.buttons
-                            .filter((b: any) => b.type === "url")
+                            .filter((b: any) => b.type === "url" || b.type === "flow")
                             .slice(0, 3)
                             .map((b: any) => ({
                                 type: "web_url",
-                                url: b.url,
+                                url: b.type === "flow" ? `https://insta-reply.vercel.app/f/${b.url}` : (b.url || "").replace("http://localhost:3000", "https://insta-reply.vercel.app"),
                                 title: b.title
                             }))
                     }
@@ -422,7 +422,7 @@ async function sendFlowStep(account: any, recipientIgId: string, stepId: string,
         .map((b: any) => ({
             type: b.type === "url" ? "web_url" : "postback",
             title: b.title,
-            ...(b.type === "url" ? { url: b.url } : { payload: b.next_step_id })
+            ...(b.type === "url" ? { url: (b.url || "").replace("http://localhost:3000", "https://insta-reply.vercel.app") } : { payload: b.next_step_id })
         }));
 
     const messagePayload: any = {
