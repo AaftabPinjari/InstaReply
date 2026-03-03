@@ -16,7 +16,8 @@ import {
     ChevronDown,
     Link as LinkIcon,
     MousePointer2,
-    CheckCircle2
+    CheckCircle2,
+    ExternalLink
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -270,6 +271,17 @@ export default function FlowsPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                        <button
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/f/${f.id}`;
+                                                navigator.clipboard.writeText(url);
+                                                alert("Link copied to clipboard!");
+                                            }}
+                                            title="Copy External Link"
+                                            className="p-2 rounded-lg text-surface-400 hover:text-brand-400 hover:bg-brand-500/10 transition-all"
+                                        >
+                                            <LinkIcon className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => openEditor(f)} className="p-2 rounded-lg text-surface-400 hover:text-white hover:bg-white/[0.08] transition-all">
                                             <Edit3 className="w-4 h-4" />
                                         </button>
@@ -324,6 +336,17 @@ export default function FlowsPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                {editingFlow && (
+                                    <button
+                                        onClick={() => {
+                                            const url = `${window.location.origin}/f/${editingFlow.id}`;
+                                            window.open(url, "_blank");
+                                        }}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-sm font-semibold text-white transition-all"
+                                    >
+                                        <ExternalLink className="w-4 h-4" /> Preview
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => saveMutation.mutate()}
                                     disabled={!flowName.trim() || steps.length === 0 || saveMutation.isPending}
@@ -351,8 +374,8 @@ export default function FlowsPage() {
                                             key={idx}
                                             onClick={() => setActiveStepIndex(idx)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${activeStepIndex === idx
-                                                    ? "bg-brand-500/15 border border-brand-500/30 text-white shadow-lg shadow-brand-500/5"
-                                                    : "hover:bg-white/[0.04] text-surface-400"
+                                                ? "bg-brand-500/15 border border-brand-500/30 text-white shadow-lg shadow-brand-500/5"
+                                                : "hover:bg-white/[0.04] text-surface-400"
                                                 }`}
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${activeStepIndex === idx ? "bg-brand-500 text-white" : "bg-surface-800 text-surface-500"
