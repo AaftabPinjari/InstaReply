@@ -179,8 +179,8 @@ async function handleComment(
         return;
     }
 
-    // Use page_access_token if available (it acts on behalf of the page)
-    const tokenToUse = account.access_token;
+    // Prefer page_access_token (from Facebook Login) for reliable DM delivery via Pages API
+    const tokenToUse = account.page_access_token || account.access_token;
 
     // Choose the correct endpoint depending on login method
     const baseGraphUrl = account.page_id

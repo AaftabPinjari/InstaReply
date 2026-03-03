@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
     const code = request.nextUrl.searchParams.get("code");
     const error = request.nextUrl.searchParams.get("error");
 
-    // Correctly detect the base URL when behind a proxy like ngrok
+    // Correctly detect the base URL when behind a proxy
     const host = request.headers.get("x-forwarded-host") || request.nextUrl.host;
     const protocol = request.headers.get("x-forwarded-proto") || "http";
     const baseUrl = `${protocol}://${host}`;
@@ -17,71 +17,137 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // 1. Exchange code for User Access Token
-        const tokenUrl = "https://api.instagram.com/oauth/access_token";
-
-        // Force https for the redirect_uri if we're behind a proxy (like ngrok)
+        // Force https for the redirect_uri if we're behind a proxy
         const exchangeRedirectUri = baseUrl.includes("localhost")
             ? `${baseUrl}/api/auth/instagram/callback`
             : `${baseUrl.replace("http://", "https://")}/api/auth/instagram/callback`;
 
-        const params = new URLSearchParams();
-        params.append("client_id", process.env.META_APP_ID!);
-        params.append("client_secret", process.env.META_APP_SECRET!);
-        params.append("redirect_uri", exchangeRedirectUri);
-        params.append("code", code);
-        params.append("grant_type", "authorization_code");
+        // ============================================================
+        // STEP 1: Exchange code for Facebook User Access Token
+        // ============================================================
+        const tokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
+        tokenUrl.searchParams.append("client_id", process.env.META_APP_ID!);
+        tokenUrl.searchParams.append("client_secret", process.env.META_APP_SECRET!);
+        tokenUrl.searchParams.append("redirect_uri", exchangeRedirectUri);
+        tokenUrl.searchParams.append("code", code);
 
-        const fbTokenRes = await fetch(tokenUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: params.toString(),
-        });
-
+        const fbTokenRes = await fetch(tokenUrl.toString());
         const fbTokenData = await fbTokenRes.json();
 
         if (!fbTokenRes.ok || !fbTokenData.access_token) {
             console.error("[OAuth] FB Token exchange failed:", JSON.stringify(fbTokenData, null, 2));
             const fbError = fbTokenData?.error?.message || JSON.stringify(fbTokenData);
-            // Temporary debug: show partial env values to verify Vercel config
-            const secret = process.env.META_APP_SECRET || "MISSING";
-            const debugInfo = `secret_start=${secret.slice(0, 4)}...${secret.slice(-4)}_appid=${process.env.META_APP_ID || "MISSING"}_status=${fbTokenRes.status}`;
             return NextResponse.redirect(
-                `${baseUrl}/dashboard/accounts?error=token_exchange_failed&message=${encodeURIComponent(fbError)}&debug=${encodeURIComponent(debugInfo)}`
+                `${baseUrl}/dashboard/accounts?error=token_exchange_failed&message=${encodeURIComponent(fbError)}`
             );
         }
 
-        const fbAccessToken = fbTokenData.access_token;
+        const shortLivedToken = fbTokenData.access_token;
 
-        // 2. Get the long-lived Instagram token 
-        const longTokenUrl = new URL("https://graph.instagram.com/access_token");
-        longTokenUrl.searchParams.append("grant_type", "ig_exchange_token");
+        // ============================================================
+        // STEP 2: Exchange for Long-Lived User Token (~60 days)
+        // ============================================================
+        const longTokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
+        longTokenUrl.searchParams.append("grant_type", "fb_exchange_token");
+        longTokenUrl.searchParams.append("client_id", process.env.META_APP_ID!);
         longTokenUrl.searchParams.append("client_secret", process.env.META_APP_SECRET!);
-        longTokenUrl.searchParams.append("access_token", fbAccessToken);
+        longTokenUrl.searchParams.append("fb_exchange_token", shortLivedToken);
 
-        let accessToken = fbAccessToken;
-        let expiresIn = 5184000;
+        let userAccessToken = shortLivedToken;
+        let expiresIn = 5184000; // default 60 days
 
         try {
             const longTokenRes = await fetch(longTokenUrl.toString());
             const longTokenData = await longTokenRes.json();
             if (longTokenData.access_token) {
-                accessToken = longTokenData.access_token;
+                userAccessToken = longTokenData.access_token;
                 expiresIn = longTokenData.expires_in || expiresIn;
+                console.log("[OAuth] Got long-lived user token");
             } else {
-                console.warn("[OAuth] Failed to get long-lived IG token, using short-lived", longTokenData);
+                console.warn("[OAuth] Failed to get long-lived token, using short-lived:", longTokenData);
             }
         } catch (e) {
-            console.error("[OAuth] Error fetching long-lived token", e);
+            console.error("[OAuth] Error fetching long-lived token:", e);
         }
 
-        // 3. Get Instagram Business Account Info directly from IG Graph API
+        // ============================================================
+        // STEP 3: Get user's Facebook Pages
+        // ============================================================
+        const pagesRes = await fetch(
+            `https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userAccessToken}`
+        );
+        const pagesData = await pagesRes.json();
+
+        console.log("[OAuth] Pages data:", JSON.stringify(pagesData, null, 2));
+
+        if (pagesData.error) {
+            console.error("[OAuth] Pages API error:", pagesData.error);
+            return NextResponse.redirect(
+                `${baseUrl}/dashboard/accounts?error=pages_api_error&message=${encodeURIComponent(pagesData.error.message)}`
+            );
+        }
+
+        const pages = pagesData.data || [];
+        if (pages.length === 0) {
+            return NextResponse.redirect(
+                `${baseUrl}/dashboard/accounts?error=no_pages&message=${encodeURIComponent(
+                    "No Facebook Pages found. Make sure you have a Facebook Page linked to your Instagram Business account."
+                )}`
+            );
+        }
+
+        // ============================================================
+        // STEP 4: Find the Page with a linked Instagram Business Account
+        // ============================================================
+        let selectedPage: { id: string; name: string; access_token: string } | null = null;
+        let igBusinessAccountId: string | null = null;
+
+        for (const page of pages) {
+            if (page.instagram_business_account) {
+                selectedPage = page;
+                igBusinessAccountId = page.instagram_business_account.id;
+                break;
+            }
+        }
+
+        if (!selectedPage || !igBusinessAccountId) {
+            // Try fetching IG account for each page individually (sometimes not returned in bulk)
+            for (const page of pages) {
+                try {
+                    const pageIgRes = await fetch(
+                        `https://graph.facebook.com/v22.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+                    );
+                    const pageIgData = await pageIgRes.json();
+                    if (pageIgData.instagram_business_account) {
+                        selectedPage = page;
+                        igBusinessAccountId = pageIgData.instagram_business_account.id;
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`[OAuth] Failed to check IG for page ${page.id}:`, e);
+                }
+            }
+        }
+
+        if (!selectedPage || !igBusinessAccountId) {
+            return NextResponse.redirect(
+                `${baseUrl}/dashboard/accounts?error=no_ig_business_account&message=${encodeURIComponent(
+                    "None of your Facebook Pages have a linked Instagram Business account. Please link your Instagram account to a Facebook Page first."
+                )}`
+            );
+        }
+
+        console.log(`[OAuth] Found IG Business Account ${igBusinessAccountId} on Page ${selectedPage.id} (${selectedPage.name})`);
+
+        // ============================================================
+        // STEP 5: Get Instagram Account details
+        // ============================================================
         const igUserRes = await fetch(
-            `https://graph.instagram.com/v22.0/me?fields=id,user_id,username,name,profile_picture_url&access_token=${accessToken}`
+            `https://graph.facebook.com/v22.0/${igBusinessAccountId}?fields=id,username,name,profile_picture_url&access_token=${selectedPage.access_token}`
         );
         const igUserData = await igUserRes.json();
 
-        console.log("[OAuth] IG User data received:", JSON.stringify(igUserData, null, 2));
+        console.log("[OAuth] IG User data:", JSON.stringify(igUserData, null, 2));
 
         if (igUserData.error) {
             console.error("[OAuth] IG API Error:", igUserData.error);
@@ -90,22 +156,16 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        if (!igUserData.user_id) {
-            console.error("[OAuth] No Instagram Account data returned");
-            return NextResponse.redirect(
-                `${baseUrl}/dashboard/accounts?error=no_ig_business_account&perms=unknown&count=0`
-            );
-        }
-
         const igAccount = {
-            id: igUserData.user_id, // Store the Global ID (user_id) to match Webhooks
-            username: igUserData.username,
-            name: igUserData.name,
-            profile_picture_url: igUserData.profile_picture_url
+            id: igBusinessAccountId,
+            username: igUserData.username || "",
+            name: igUserData.name || "",
+            profile_picture_url: igUserData.profile_picture_url || "",
         };
 
-        // 4. Save to database
-        // Use the session-aware client to identify the logged-in user
+        // ============================================================
+        // STEP 6: Save to database
+        // ============================================================
         const supabase = await createClient();
         const {
             data: { user },
@@ -115,7 +175,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${baseUrl}/login`);
         }
 
-        // Use a service-role client for database reads/writes to bypass RLS.
+        // Use a service-role client for database reads/writes to bypass RLS
         const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
         const adminSupabase = createSupabaseClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -130,7 +190,6 @@ export async function GET(request: NextRequest) {
             .maybeSingle();
 
         if (existingAccount && existingAccount.user_id !== user.id) {
-            // Another user currently has this IG account connected → block it
             console.error(`[OAuth] IG account @${igAccount.username} is already connected to another user.`);
             return NextResponse.redirect(
                 `${baseUrl}/dashboard/accounts?error=already_connected&message=${encodeURIComponent(
@@ -139,43 +198,39 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Either the account doesn't exist (fresh connect) or belongs to this user (reconnect)
-        const expiresAt = new Date(
-            Date.now() + expiresIn * 1000
-        ).toISOString();
+        const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-        // 4. Important: Explicitly subscribe to Instagram webhooks using this access token
-        // For Instagram Business Login, the app must explicitly subscribe to specific fields on the profile
+        // ============================================================
+        // STEP 7: Subscribe to Instagram webhooks using Page Access Token
+        // ============================================================
         try {
             const subscribeUrl = new URL(`https://graph.instagram.com/v22.0/${igAccount.id}/subscribed_apps`);
             subscribeUrl.searchParams.append("subscribed_fields", "comments,messages");
-            subscribeUrl.searchParams.append("access_token", accessToken);
+            subscribeUrl.searchParams.append("access_token", selectedPage.access_token);
 
-            const subscribeRes = await fetch(subscribeUrl.toString(), {
-                method: "POST"
-            });
+            const subscribeRes = await fetch(subscribeUrl.toString(), { method: "POST" });
             const subscribeData = await subscribeRes.json();
 
             if (subscribeData.success) {
                 console.log(`[OAuth] Successfully subscribed to webhooks for @${igAccount.username}`);
             } else {
                 console.warn(`[OAuth] Webhook subscription failed for @${igAccount.username}:`, subscribeData);
-                // Optionally handle the failure (e.g. they didn't grant webhook permissions)
             }
         } catch (e) {
             console.error(`[OAuth] Network error making webhook subscription for @${igAccount.username}:`, e);
         }
 
+        // Upsert the account with Page ID and Page Access Token
         const { error: upsertError } = await adminSupabase.from("instagram_accounts").upsert(
             {
                 user_id: user.id,
                 ig_user_id: String(igAccount.id),
-                ig_username: igAccount.username || "",
-                access_token: accessToken,
+                ig_username: igAccount.username,
+                access_token: userAccessToken,
                 token_expires_at: expiresAt,
                 connected_at: new Date().toISOString(),
-                page_id: null,
-                page_access_token: null,
+                page_id: selectedPage.id,
+                page_access_token: selectedPage.access_token,
             },
             { onConflict: "ig_user_id" }
         );
