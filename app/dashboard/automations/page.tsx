@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Zap, Trash2, X, ToggleLeft, ToggleRight, Tag, Hash } from "lucide-react";
+import { Plus, Zap, Trash2, X, ToggleLeft, ToggleRight, Tag, Hash, Workflow } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Automation {
@@ -14,16 +14,20 @@ interface Automation {
     is_active: boolean;
     created_at: string;
     template: { id: string; name: string } | null;
+    flow: { id: string; name: string } | null;
 }
 
 interface Template { id: string; name: string; }
+interface Flow { id: string; name: string; }
 
 export default function AutomationsPage() {
     const queryClient = useQueryClient();
     const supabase = createClient();
 
     const [showModal, setShowModal] = useState(false);
+    const [automationType, setAutomationType] = useState<"template" | "flow">("template");
     const [templateId, setTemplateId] = useState("");
+    const [flowId, setFlowId] = useState("");
     const [keywords, setKeywords] = useState("");
     const [mediaId, setMediaId] = useState("");
 
@@ -32,7 +36,11 @@ export default function AutomationsPage() {
         queryFn: async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
-            const { data, error } = await supabase.from("automations").select("*, template:dm_templates(id, name)").eq("user_id", user.id).order("created_at", { ascending: false });
+            const { data, error } = await supabase
+                .from("automations")
+                .select("*, template:dm_templates(id, name), flow:conversation_flows(id, name)")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false });
             if (error) throw error;
             return data;
         },
@@ -49,6 +57,17 @@ export default function AutomationsPage() {
         }
     });
 
+    const { data: flows = [] } = useQuery({
+        queryKey: ["conversation_flows_selector"],
+        queryFn: async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Not authenticated");
+            const { data, error } = await supabase.from("conversation_flows").select("id, name").eq("user_id", user.id);
+            if (error) throw error;
+            return data;
+        }
+    });
+
     const saveMutation = useMutation({
         mutationFn: async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -56,7 +75,8 @@ export default function AutomationsPage() {
             const kw = keywords.split(",").map(k => k.trim()).filter(Boolean);
             const { error } = await supabase.from("automations").insert({
                 user_id: user.id,
-                template_id: templateId,
+                template_id: automationType === "template" ? templateId : null,
+                flow_id: automationType === "flow" ? flowId : null,
                 media_id: mediaId || null,
                 trigger_keywords: kw.length > 0 ? kw : null,
                 is_active: true,
@@ -65,7 +85,7 @@ export default function AutomationsPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["automations"] });
-            setShowModal(false); setTemplateId(""); setKeywords(""); setMediaId("");
+            setShowModal(false); setTemplateId(""); setFlowId(""); setKeywords(""); setMediaId("");
         }
     });
 
@@ -122,22 +142,60 @@ export default function AutomationsPage() {
                             </div>
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">DM Template</label>
-                                    <div className="relative">
-                                        <select
-                                            value={templateId}
-                                            onChange={(e) => setTemplateId(e.target.value)}
-                                            className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white outline-none focus:border-brand-500/50 text-sm appearance-none transition-all"
+                                    <label className="block text-sm font-medium text-surface-300 mb-2.5">Response Type</label>
+                                    <div className="flex p-1 bg-white/[0.04] border border-white/[0.08] rounded-2xl mb-4">
+                                        <button
+                                            onClick={() => setAutomationType("template")}
+                                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${automationType === "template" ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20" : "text-surface-500 hover:text-surface-300"}`}
                                         >
-                                            <option value="" className="bg-surface-900">Select a template...</option>
-                                            {templates.map(t => <option key={t.id} value={t.id} className="bg-surface-900">{t.name}</option>)}
-                                        </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500 text-xs">▼</div>
+                                            Single Template
+                                        </button>
+                                        <button
+                                            onClick={() => setAutomationType("flow")}
+                                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${automationType === "flow" ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20" : "text-surface-500 hover:text-surface-300"}`}
+                                        >
+                                            Conversation Flow
+                                        </button>
                                     </div>
-                                    {templates.length === 0 && (
-                                        <p className="text-xs text-warning-400 mt-2 flex items-center gap-1">
-                                            <span>⚠️</span> Create a template first!
-                                        </p>
+
+                                    {automationType === "template" ? (
+                                        <>
+                                            <div className="relative">
+                                                <select
+                                                    value={templateId}
+                                                    onChange={(e) => setTemplateId(e.target.value)}
+                                                    className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white outline-none focus:border-brand-500/50 text-sm appearance-none transition-all"
+                                                >
+                                                    <option value="" className="bg-surface-900">Select a template...</option>
+                                                    {templates.map(t => <option key={t.id} value={t.id} className="bg-surface-900">{t.name}</option>)}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500 text-xs text-glow-brand">▼</div>
+                                            </div>
+                                            {templates.length === 0 && (
+                                                <p className="text-xs text-warning-400 mt-2 flex items-center gap-1 font-medium">
+                                                    <span>⚠️</span> Create a template first!
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="relative">
+                                                <select
+                                                    value={flowId}
+                                                    onChange={(e) => setFlowId(e.target.value)}
+                                                    className="w-full px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white outline-none focus:border-brand-500/50 text-sm appearance-none transition-all"
+                                                >
+                                                    <option value="" className="bg-surface-900">Select a flow...</option>
+                                                    {flows.map(f => <option key={f.id} value={f.id} className="bg-surface-900">{f.name}</option>)}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500 text-xs text-glow-brand">▼</div>
+                                            </div>
+                                            {flows.length === 0 && (
+                                                <p className="text-xs text-warning-400 mt-2 flex items-center gap-1 font-medium">
+                                                    <span>⚠️</span> Create a flow first!
+                                                </p>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                                 <div>
@@ -156,7 +214,7 @@ export default function AutomationsPage() {
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
                                     <button onClick={() => setShowModal(false)} className="w-full sm:flex-1 py-3.5 rounded-xl border border-white/[0.08] text-sm font-semibold text-surface-300 hover:bg-white/[0.04] transition-all">Cancel</button>
-                                    <button onClick={save} disabled={!templateId || saveMutation.isPending} className="w-full sm:flex-1 py-3.5 rounded-xl gradient-brand text-sm font-bold text-white hover:opacity-90 shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2 transition-all">
+                                    <button onClick={save} disabled={(automationType === "template" ? !templateId : !flowId) || saveMutation.isPending} className="w-full sm:flex-1 py-3.5 rounded-xl gradient-brand text-sm font-bold text-white hover:opacity-90 shadow-lg shadow-brand-500/25 disabled:opacity-50 flex items-center justify-center gap-2 transition-all">
                                         <Plus className="w-4 h-4" />
                                         {saveMutation.isPending ? "Creating..." : "Create Automation"}
                                     </button>
@@ -183,7 +241,16 @@ export default function AutomationsPage() {
                             </button>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-semibold text-white">{a.template?.name || "Unknown template"}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        {a.flow ? (
+                                            <div className="w-5 h-5 rounded-md bg-brand-500/10 text-brand-400 flex items-center justify-center"><Workflow className="w-3 h-3" /></div>
+                                        ) : (
+                                            <div className="w-5 h-5 rounded-md bg-accent-500/10 text-accent-400 flex items-center justify-center"><Tag className="w-3 h-3" /></div>
+                                        )}
+                                        <span className="text-sm font-semibold text-white truncate max-w-[120px]">
+                                            {a.flow?.name || a.template?.name || "No Response Set"}
+                                        </span>
+                                    </div>
                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase ${a.is_active ? "bg-success-500/15 text-success-400" : "bg-surface-700/50 text-surface-500"}`}>{a.is_active ? "Active" : "Paused"}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-surface-500">

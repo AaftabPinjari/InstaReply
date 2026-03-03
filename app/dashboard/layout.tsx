@@ -15,6 +15,7 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
+    Workflow,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,6 +23,7 @@ const navItems = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
     { href: "/dashboard/accounts", label: "Accounts", icon: Instagram },
     { href: "/dashboard/templates", label: "Templates", icon: FileText },
+    { href: "/dashboard/flows", label: "Flows", icon: Workflow },
     { href: "/dashboard/automations", label: "Automations", icon: Zap },
     { href: "/dashboard/logs", label: "DM Logs", icon: ScrollText },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },

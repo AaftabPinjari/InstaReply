@@ -184,7 +184,7 @@ async function handleComment(
             .from("flow_steps")
             .select("*")
             .eq("flow_id", automation.flow_id)
-            .eq("is_start", true)
+            .eq("step_index", 0)
             .single();
 
         if (startStep) {
