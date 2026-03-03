@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -116,8 +116,6 @@ export async function GET(request: NextRequest) {
             Date.now() + expiresIn * 1000
         ).toISOString();
 
-        // Use a service-role client for database writes to bypass RLS if needed, or stick to normal client if RLS allows
-        // Stick to normal client for now as it was in the old code
         const { error: upsertError } = await supabase.from("instagram_accounts").upsert(
             {
                 user_id: user.id,

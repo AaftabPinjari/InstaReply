@@ -96,7 +96,7 @@ function AccountsContent() {
                         Instagram Accounts
                     </h1>
                     <p className="text-sm text-surface-400">
-                        Connect your Instagram account via Facebook Login
+                        Connect your Instagram account via Meta
                     </p>
                 </div>
                 <a
