@@ -283,6 +283,44 @@ async function handleComment(
                 }
             }
         };
+    } else if (automation.template.buttons && automation.template.buttons.length > 0) {
+        // Support custom buttons from templates
+        const hasUrlButtons = automation.template.buttons.some((b: any) => b.type === "url");
+        const hasQuickReplies = automation.template.buttons.some((b: any) => b.type === "quick_reply");
+
+        if (hasUrlButtons) {
+            // Use Button Template for URL buttons
+            messagePayload = {
+                attachment: {
+                    type: "template",
+                    payload: {
+                        template_type: "button",
+                        text: message,
+                        buttons: automation.template.buttons
+                            .filter((b: any) => b.type === "url")
+                            .slice(0, 3)
+                            .map((b: any) => ({
+                                type: "web_url",
+                                url: b.url,
+                                title: b.title
+                            }))
+                    }
+                }
+            };
+        } else if (hasQuickReplies) {
+            // Use Quick Replies
+            messagePayload = {
+                text: message,
+                quick_replies: automation.template.buttons
+                    .filter((b: any) => b.type === "quick_reply")
+                    .slice(0, 13) // Meta limit
+                    .map((b: any) => ({
+                        content_type: "text",
+                        title: b.title,
+                        payload: b.next_step_id || "template_reply"
+                    }))
+            };
+        }
     }
 
     // Send the private reply DM

@@ -31,7 +31,7 @@ interface Flow {
 interface FlowStep {
     id: string;
     flow_id: string;
-    step_order: number;
+    step_index: number;
     message_text: string;
     is_start: boolean;
     buttons: FlowButton[];
@@ -70,8 +70,10 @@ export default function FlowsPage() {
         },
     });
 
+    // Save/Update Flow
     const saveMutation = useMutation({
         mutationFn: async () => {
+            console.log("Saving flow...");
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
@@ -79,30 +81,37 @@ export default function FlowsPage() {
 
             // 1. Save/Update Flow
             if (flowId) {
-                await supabase.from("conversation_flows").update({ name: flowName }).eq("id", flowId);
+                const { error: updateError } = await supabase
+                    .from("conversation_flows")
+                    .update({ name: flowName })
+                    .eq("id", flowId);
+                if (updateError) throw updateError;
             } else {
-                const { data, error } = await supabase
+                const { data: flowData, error: flowError } = await supabase
                     .from("conversation_flows")
                     .insert({ user_id: user.id, name: flowName })
                     .select()
                     .single();
-                if (error) throw error;
-                flowId = data.id;
+                if (flowError) throw flowError;
+                flowId = flowData.id;
             }
 
             // 2. Save Steps
-            // Note: Since IDs change on every save in this simplified editor, we link by index during the save process
+            // Note: We delete and re-insert for simplicity in this version
             if (editingFlow?.id) {
-                await supabase.from("flow_steps").delete().eq("flow_id", flowId);
+                const { error: delError } = await supabase
+                    .from("flow_steps")
+                    .delete()
+                    .eq("flow_id", flowId);
+                if (delError) throw delError;
             }
 
             // Map UI steps to DB-ready steps
-            // First pass: Insert steps and get their generated IDs
             const stepsToInsert = steps.map((s, idx) => ({
                 flow_id: flowId,
                 message_text: s.message_text,
                 is_start: idx === 0,
-                step_order: idx,
+                step_index: idx,
                 buttons: s.buttons || []
             }));
 
@@ -113,30 +122,39 @@ export default function FlowsPage() {
 
             if (stepError) throw stepError;
 
-            // Second pass: Update buttons to use the real next_step_ids
-            // For now, next_step_id in the UI is the index. We map index -> real ID.
+            // 3. Second pass: Update buttons to use real next_step_ids
             if (insertedSteps) {
                 for (const step of insertedSteps) {
-                    const originalIndex = step.step_order;
+                    const originalIndex = step.step_index;
                     const originalButtons = steps[originalIndex].buttons || [];
 
                     const updatedButtons = originalButtons.map(btn => {
                         if (btn.type === "quick_reply" && btn.next_step_id !== null) {
                             const nextStepIndex = parseInt(btn.next_step_id);
-                            const realNextStep = insertedSteps.find(s => s.step_order === nextStepIndex);
+                            const realNextStep = insertedSteps.find(s => s.step_index === nextStepIndex);
                             return { ...btn, next_step_id: realNextStep?.id || null };
                         }
                         return btn;
                     });
 
-                    await supabase.from("flow_steps").update({ buttons: updatedButtons }).eq("id", step.id);
+                    await supabase
+                        .from("flow_steps")
+                        .update({ buttons: updatedButtons })
+                        .eq("id", step.id);
                 }
             }
+            return flowId;
         },
         onSuccess: () => {
+            console.log("Flow saved successfully!");
             queryClient.invalidateQueries({ queryKey: ["conversation_flows"] });
             setShowEditor(false);
             resetEditor();
+            alert("Flow saved successfully!");
+        },
+        onError: (err: any) => {
+            console.error("Save error:", err);
+            alert(`Error saving flow: ${err.message || 'Unknown error'}`);
         }
     });
 
@@ -158,10 +176,7 @@ export default function FlowsPage() {
         if (f) {
             setEditingFlow(f);
             setFlowName(f.name);
-            // Sort steps by order
-            const sortedSteps = [...(f.steps || [])].sort((a, b) => a.step_order - b.step_order);
-
-            // Map real next_step_ids back to indices for the UI
+            const sortedSteps = [...(f.steps || [])].sort((a, b) => a.step_index - b.step_index);
             const uiSteps = sortedSteps.map(s => ({
                 ...s,
                 buttons: s.buttons.map(b => ({
@@ -169,7 +184,6 @@ export default function FlowsPage() {
                     next_step_id: b.next_step_id ? sortedSteps.findIndex(ss => ss.id === b.next_step_id).toString() : null
                 }))
             }));
-
             setSteps(uiSteps);
         } else {
             resetEditor();
@@ -179,46 +193,59 @@ export default function FlowsPage() {
     };
 
     const addStep = () => {
-        setSteps([...steps, { message_text: "", is_start: false, buttons: [] }]);
-        setActiveStepIndex(steps.length);
+        setSteps(prev => {
+            const next = [...prev, { message_text: "", is_start: false, buttons: [] }];
+            setActiveStepIndex(next.length - 1);
+            return next;
+        });
     };
 
     const removeStep = (index: number) => {
-        const newSteps = [...steps];
-        newSteps.splice(index, 1);
-        setSteps(newSteps);
-        if (activeStepIndex >= newSteps.length) {
-            setActiveStepIndex(Math.max(0, newSteps.length - 1));
-        }
+        setSteps(prev => {
+            const next = [...prev];
+            next.splice(index, 1);
+            if (activeStepIndex >= next.length) {
+                setActiveStepIndex(Math.max(0, next.length - 1));
+            }
+            return next;
+        });
     };
 
     const updateStep = (index: number, data: Partial<FlowStep>) => {
-        const newSteps = [...steps];
-        newSteps[index] = { ...newSteps[index], ...data };
-        setSteps(newSteps);
+        setSteps(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], ...data };
+            return next;
+        });
     };
 
     const addButton = (stepIndex: number) => {
-        const newSteps = [...steps];
-        const buttons = newSteps[stepIndex].buttons || [];
-        newSteps[stepIndex].buttons = [...buttons, { type: "quick_reply", title: "New Button", next_step_id: null }];
-        setSteps(newSteps);
+        setSteps(prev => {
+            const next = [...prev];
+            const buttons = next[stepIndex].buttons || [];
+            next[stepIndex].buttons = [...buttons, { type: "quick_reply", title: "New Button", next_step_id: null }];
+            return next;
+        });
     };
 
     const updateButton = (stepIndex: number, buttonIndex: number, data: Partial<FlowButton>) => {
-        const newSteps = [...steps];
-        const buttons = [...(newSteps[stepIndex].buttons || [])];
-        buttons[buttonIndex] = { ...buttons[buttonIndex], ...data };
-        newSteps[stepIndex].buttons = buttons;
-        setSteps(newSteps);
+        setSteps(prev => {
+            const next = [...prev];
+            const buttons = [...(next[stepIndex].buttons || [])];
+            buttons[buttonIndex] = { ...buttons[buttonIndex], ...data };
+            next[stepIndex].buttons = buttons;
+            return next;
+        });
     };
 
     const removeButton = (stepIndex: number, buttonIndex: number) => {
-        const newSteps = [...steps];
-        const buttons = [...(newSteps[stepIndex].buttons || [])];
-        buttons.splice(buttonIndex, 1);
-        newSteps[stepIndex].buttons = buttons;
-        setSteps(newSteps);
+        setSteps(prev => {
+            const next = [...prev];
+            const buttons = [...(next[stepIndex].buttons || [])];
+            buttons.splice(buttonIndex, 1);
+            next[stepIndex].buttons = buttons;
+            return next;
+        });
     };
 
     return (
@@ -370,13 +397,15 @@ export default function FlowsPage() {
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-3 space-y-2 shadow-inner">
                                     {steps.map((step, idx) => (
-                                        <button
+                                        <div
                                             key={idx}
                                             onClick={() => setActiveStepIndex(idx)}
-                                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${activeStepIndex === idx
-                                                ? "bg-brand-500/15 border border-brand-500/30 text-white shadow-lg shadow-brand-500/5"
-                                                : "hover:bg-white/[0.04] text-surface-400"
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group cursor-pointer border ${activeStepIndex === idx
+                                                ? "bg-brand-500/15 border-brand-500/30 text-white shadow-lg shadow-brand-500/5"
+                                                : "bg-transparent border-transparent hover:bg-white/[0.04] text-surface-400"
                                                 }`}
+                                            role="button"
+                                            tabIndex={0}
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${activeStepIndex === idx ? "bg-brand-500 text-white" : "bg-surface-800 text-surface-500"
                                                 }`}>
@@ -396,7 +425,7 @@ export default function FlowsPage() {
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
