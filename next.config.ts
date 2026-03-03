@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Providing a webpack config forces Next.js to use Webpack instead of Turbopack
+  webpack: (config) => config,
   images: {
     remotePatterns: [
       {
