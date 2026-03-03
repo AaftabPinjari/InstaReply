@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
-// POST: Receive comment events
+// POST: Receive events
 export async function POST(request: NextRequest) {
     const body = await request.text();
 
@@ -47,27 +47,54 @@ export async function POST(request: NextRequest) {
 
         if (signature !== expectedSignature) {
             console.warn(`[Webhook] Invalid signature warning. Received: ${signature}, Expected: ${expectedSignature}. Continuing for debug purposes...`);
-            // WARNING: In production, uncomment the line below to enforce security!
-            // return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
         }
     }
 
     const data = JSON.parse(body);
     console.log("[Webhook] Received:", JSON.stringify(data, null, 2));
 
-    // Process comment events
     if (data.object === "instagram") {
         for (const entry of data.entry || []) {
+            const igUserId = entry.id;
+
+            // Handle Comment changes
             for (const change of entry.changes || []) {
                 if (change.field === "comments") {
-                    await handleComment(change.value, entry.id);
+                    await handleComment(change.value, igUserId);
                 }
+            }
+
+            // Handle Messaging (DMs, Quick Replies, Postbacks)
+            for (const messageEvent of entry.messaging || []) {
+                await handleMessaging(messageEvent, igUserId);
             }
         }
     }
 
     // Always return 200 quickly to Meta
     return NextResponse.json({ received: true }, { status: 200 });
+}
+
+async function handleMessaging(event: any, igUserId: string) {
+    const senderId = event.sender.id;
+
+    // 1. Find account
+    const { data: account } = await supabase
+        .from("instagram_accounts")
+        .select("user_id, page_id, page_access_token, ig_username")
+        .eq("ig_user_id", igUserId)
+        .single();
+
+    if (!account) return;
+
+    // 2. Identify if this is a flow progression (Quick Reply or Postback)
+    const payload = event.postback?.payload || event.message?.quick_reply?.payload;
+
+    if (payload) {
+        console.log(`[Webhook] Processing flow payload: ${payload} from ${senderId}`);
+        // Payload should be the next_step_id
+        await sendFlowStep(account, senderId, payload);
+    }
 }
 
 async function handleComment(
@@ -143,8 +170,55 @@ async function handleComment(
         return true;
     });
 
-    if (!automation || !automation.template) {
+    if (!automation) {
         console.log("[Webhook] No matching automation found");
+        return;
+    }
+
+    // --- CONVERSATION FLOW LOGIC ---
+    if (automation.flow_id) {
+        console.log(`[Webhook] Starting conversation flow: ${automation.flow_id} for user ${from.username}`);
+
+        // 1. Fetch starting step
+        const { data: startStep } = await supabase
+            .from("flow_steps")
+            .select("*")
+            .eq("flow_id", automation.flow_id)
+            .eq("is_start", true)
+            .single();
+
+        if (startStep) {
+            // 2. Create session
+            await supabase.from("flow_sessions").upsert({
+                flow_id: automation.flow_id,
+                ig_user_id: from.id,
+                ig_username: from.username,
+                current_step_id: startStep.id,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, { onConflict: "flow_id,ig_user_id" });
+
+            // 3. Send starting message
+            await sendFlowStep(account, from.id, startStep.id, commentId);
+
+            // Create sent log
+            await supabase.from("dm_logs").insert({
+                automation_id: automation.id,
+                comment_id: commentId,
+                commenter_ig_id: from.id,
+                commenter_username: from.username,
+                message_sent: `Started flow: ${automation.flow_id}`,
+                status: "sent",
+                sent_at: new Date().toISOString(),
+            });
+
+            return; // Exit after starting flow
+        }
+    }
+
+    // --- LEGACY TEMPLATE LOGIC (If no flow) ---
+    if (!automation.template) {
+        console.log("[Webhook] No template or flow found for automation");
         return;
     }
 
@@ -279,5 +353,92 @@ async function handleComment(
                 error_message: error.message
             })
             .eq("comment_id", commentId);
+    }
+}
+
+async function sendFlowStep(account: any, recipientIgId: string, stepId: string, commentId?: string) {
+    // 1. Fetch step
+    const { data: step, error } = await supabase
+        .from("flow_steps")
+        .select("*")
+        .eq("id", stepId)
+        .single();
+
+    if (error || !step) {
+        console.error("[Webhook] Step not found:", stepId);
+        return;
+    }
+
+    // 2. Format message with buttons/quick replies
+    const buttons = step.buttons || [];
+    const quickReplies = buttons
+        .filter((b: any) => b.type === "quick_reply")
+        .map((b: any) => ({
+            content_type: "text",
+            title: b.title,
+            payload: b.next_step_id
+        }));
+
+    const messageButtons = buttons
+        .filter((b: any) => b.type === "url" || b.type === "postback")
+        .map((b: any) => ({
+            type: b.type === "url" ? "web_url" : "postback",
+            title: b.title,
+            ...(b.type === "url" ? { url: b.url } : { payload: b.next_step_id })
+        }));
+
+    const messagePayload: any = {
+        text: step.message_text
+    };
+
+    if (quickReplies.length > 0) {
+        messagePayload.quick_replies = quickReplies;
+    } else if (messageButtons.length > 0) {
+        messagePayload.attachment = {
+            type: "template",
+            payload: {
+                template_type: "button",
+                text: step.message_text,
+                buttons: messageButtons
+            }
+        };
+        delete messagePayload.text; // Text is inside attachment for template
+    }
+
+    // 3. Send via Graph API
+    const baseGraphUrl = account.page_id
+        ? `https://graph.facebook.com/v22.0/${account.page_id}/messages`
+        : `https://graph.instagram.com/v22.0/me/messages`; // Try me/messages if no page_id
+
+    const tokenToUse = account.page_access_token || account.access_token;
+
+    try {
+        const response = await fetch(baseGraphUrl, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${tokenToUse}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                recipient: commentId ? { comment_id: commentId } : { id: recipientIgId },
+                message: messagePayload,
+            }),
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            console.log(`[Webhook] Flow step ${stepId} sent successfully`);
+
+            // Update session if it exists
+            await supabase.from("flow_sessions").update({
+                current_step_id: stepId,
+                updated_at: new Date().toISOString()
+            }).eq("ig_user_id", recipientIgId).eq("flow_id", step.flow_id);
+
+        } else {
+            console.error("[Webhook] Flow step send failed:", result);
+        }
+    } catch (err: any) {
+        console.error("[Webhook] Error in sendFlowStep:", err.message);
     }
 }
